@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  demo-app:
+    build:
+      context: ./demo-app
+    container_name: demo-app
+    environment:
+      PORT: 8888
+      LOG_LEVEL: info
+    ports:
+      - "8888:8888"
