@@ -4,7 +4,7 @@ from typing import List, Dict
 
 def post_batch(server_url: str, batch: List[Dict]) -> None:
     payload = {"events": batch}
-    r = requests.post(server_url, json=batch, timeout=5)
+    r = requests.post(server_url, json=payload, timeout=5)
     r.raise_for_status()
 
 
