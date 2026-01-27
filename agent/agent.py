@@ -1,6 +1,9 @@
 import time
+import os
 from collector import stream_container_logs
 from shipper import send_with_retry
+
+backend_url = os.getenv("BACKEND_URL")
 
 def run():
     buf = []
