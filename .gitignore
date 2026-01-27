@@ -20,3 +20,15 @@ out/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Python virtual environments
+venv/
+backend_ingest_test/venv/
+.env/
+.env*/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

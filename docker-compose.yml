@@ -1,6 +1,10 @@
 version: "3.9"
 
 services:
+  test-backend:
+    build: ./backend_ingest_test
+    ports:
+      - "8000:8000"
   demo-app:
     build:
       context: ./demo-app
@@ -10,3 +14,10 @@ services:
       LOG_LEVEL: info
     ports:
       - "8888:8888"
+  agent:
+    build: ./agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - demo-app
+      - test-backend
