@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogWatcher Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00d4ff;
+        }
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .card h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 10px;
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 10px;
+        }
+        .timeline-header h2 {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .timeline-count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        .timeline-bar {
+            display: flex;
+            align-items: flex-end;
+            height: 150px;
+            gap: 2px;
+            padding: 10px 0;
+        }
+        .timeline-bar .bar {
+            flex: 1;
+            background: #00d4ff;
+            min-width: 8px;
+            border-radius: 2px 2px 0 0;
+            transition: height 0.3s;
+        }
+        .timeline-bar .bar:hover {
+            background: #00a8cc;
+        }
+        .logs-table {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        .logs-table .log-entry {
+            display: flex;
+            gap: 15px;
+            padding: 10px 0;
+            border-bottom: 1px solid #0f3460;
+        }
+        .logs-table .log-num {
+            color: #00d4ff;
+            font-weight: bold;
+            min-width: 30px;
+        }
+        .logs-table .log-content {
+            flex: 1;
+        }
+        .logs-table .log-field {
+            margin-bottom: 4px;
+        }
+        .logs-table .log-label {
+            color: #888;
+            display: inline-block;
+            width: 80px;
+        }
+        .logs-table .log-value {
+            color: #ccc;
+        }
+        .logs-table .log-value.level-error {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        .logs-table .log-value.level-warn {
+            color: #ffa502;
+            font-weight: bold;
+        }
+        .logs-table .log-message-text {
+            color: #fff;
+            word-break: break-word;
+            background: #0f3460;
+            padding: 6px 10px;
+            border-radius: 4px;
+            margin-top: 6px;
+            font-family: monospace;
+        }
+        .sort-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sort-controls label {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        .sort-controls select {
+            padding: 6px 12px;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+            background: #0f3460;
+            color: #eee;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .sort-controls select:hover {
+            border-color: #00d4ff;
+        }
+        .card.wide {
+            grid-column: 1 / -1;
+        }
+        .error {
+            color: #ff6b6b;
+            text-align: center;
+            padding: 20px;
+        }
+        .loading {
+            color: #888;
+            text-align: center;
+            padding: 20px;
+        }
+        .event-counts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .event-chip {
+            background: #0f3460;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .event-name {
+            color: #00d4ff;
+        }
+        .event-count {
+            background: #00d4ff;
+            color: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .refresh-btn {
+            display: block;
+            margin: 0 auto 30px;
+            padding: 10px 30px;
+            background: #00d4ff;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .refresh-btn:hover {
+            background: #00a8cc;
+        }
+        .api-url {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .api-url input {
+            padding: 8px 15px;
+            width: 300px;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+            background: #16213e;
+            color: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h1>LogWatcher Dashboard</h1>
+
+    <div class="api-url">
+        <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="API URL">
+    </div>
+
+    <button class="refresh-btn" onclick="loadAll()">Refresh Data</button>
+
+    <div class="dashboard">
+        <div class="card wide">
+            <div class="timeline-header">
+                <h2>Logs Over Time (hourly)</h2>
+                <div class="timeline-count"><span id="timelineTotal">-</span> logs</div>
+            </div>
+            <div id="timeline" class="timeline-bar loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <h2>Events by Type</h2>
+            <div id="eventCounts" class="event-counts loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <h2>Recent Logs</h2>
+            <div class="sort-controls">
+                <label>Sort by:</label>
+                <select id="sortField" onchange="sortAndRenderLogs()">
+                    <option value="timestamp">Timestamp</option>
+                    <option value="service">Service</option>
+                    <option value="source">Source</option>
+                    <option value="event">Event Type</option>
+                    <option value="level">Log Level</option>
+                </select>
+                <select id="sortOrder" onchange="sortAndRenderLogs()">
+                    <option value="desc">Descending (Newest / Z-A)</option>
+                    <option value="asc">Ascending (Oldest / A-Z)</option>
+                </select>
+            </div>
+            <div id="recentLogs" class="logs-table loading">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        let currentLogs = [];
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.replace(/\/$/, '');
+        }
+
+        async function fetchApi(endpoint) {
+            const response = await fetch(getApiUrl() + endpoint);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        }
+
+        async function loadTimeline() {
+            const container = document.getElementById('timeline');
+            const totalEl = document.getElementById('timelineTotal');
+            try {
+                const data = await fetchApi('/api/metrics/timeline?interval=1h');
+                if (data.data.length === 0) {
+                    container.innerHTML = '<div class="loading">No timeline data</div>';
+                    totalEl.textContent = '0';
+                    return;
+                }
+                // Calculate total logs from timeline data
+                const total = data.data.reduce((sum, d) => sum + d.count, 0);
+                totalEl.textContent = total.toLocaleString();
+
+                const maxCount = Math.max(...data.data.map(d => d.count), 1);
+                container.innerHTML = data.data.slice(-24).map(d => {
+                    const height = Math.max((d.count / maxCount) * 100, 2);
+                    const time = new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                    return `<div class="bar" style="height: ${height}%" title="${time}: ${d.count} logs"></div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+                totalEl.textContent = '-';
+            }
+        }
+
+        async function loadEventCounts() {
+            const container = document.getElementById('eventCounts');
+            try {
+                const data = await fetchApi('/api/metrics/by-event');
+                if (data.events.length === 0) {
+                    container.innerHTML = '<div class="loading">No events yet</div>';
+                    return;
+                }
+                container.innerHTML = data.events.map(e => `
+                    <div class="event-chip">
+                        <span class="event-name">${escapeHtml(e.event)}</span>
+                        <span class="event-count">${e.count}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadRecentLogs() {
+            const container = document.getElementById('recentLogs');
+            try {
+                const data = await fetchApi('/api/logs?size=50');
+                if (data.logs.length === 0) {
+                    container.innerHTML = '<div class="loading">No logs found</div>';
+                    currentLogs = [];
+                    return;
+                }
+                currentLogs = data.logs;
+                sortAndRenderLogs();
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        function getLogField(log, field) {
+            if (field === 'timestamp') {
+                return new Date(log.timestamp).getTime();
+            }
+            if (field === 'service' || field === 'source') {
+                return (log[field] || '').toLowerCase();
+            }
+            // Use pre-parsed fields from API
+            if (field === 'event') {
+                return (log.event || '').toLowerCase();
+            }
+            if (field === 'level') {
+                return log.level || 0;
+            }
+            return '';
+        }
+
+        function getLevelName(level) {
+            const levels = { 10: 'TRACE', 20: 'DEBUG', 30: 'INFO', 40: 'WARN', 50: 'ERROR', 60: 'FATAL' };
+            return levels[level] || level;
+        }
+
+        function sortAndRenderLogs() {
+            const container = document.getElementById('recentLogs');
+            if (currentLogs.length === 0) {
+                container.innerHTML = '<div class="loading">No logs found</div>';
+                return;
+            }
+
+            const sortField = document.getElementById('sortField').value;
+            const sortOrder = document.getElementById('sortOrder').value;
+
+            const sortedLogs = [...currentLogs].sort((a, b) => {
+                const valA = getLogField(a, sortField);
+                const valB = getLogField(b, sortField);
+
+                if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+                if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            container.innerHTML = sortedLogs.map((log, index) => {
+                // Use pre-parsed fields from API
+                const eventType = log.event || '(none)';
+                const level = log.level ? getLevelName(log.level) : '(none)';
+                const levelClass = log.level >= 50 ? 'level-error' : log.level >= 40 ? 'level-warn' : '';
+
+                return `
+                    <div class="log-entry">
+                        <div class="log-num">#${index + 1}</div>
+                        <div class="log-content">
+                            <div class="log-field">
+                                <span class="log-label">service:</span>
+                                <span class="log-value">${escapeHtml(log.service || '(none)')}</span>
+                            </div>
+                            <div class="log-field">
+                                <span class="log-label">source:</span>
+                                <span class="log-value">${escapeHtml(log.source || '(none)')}</span>
+                            </div>
+                            <div class="log-field">
+                                <span class="log-label">event:</span>
+                                <span class="log-value">${escapeHtml(eventType)}</span>
+                            </div>
+                            <div class="log-field">
+                                <span class="log-label">level:</span>
+                                <span class="log-value ${levelClass}">${escapeHtml(level)}</span>
+                            </div>
+                            <div class="log-field">
+                                <span class="log-label">ts_collected:</span>
+                                <span class="log-value">${new Date(log.timestamp).toLocaleString()}</span>
+                            </div>
+                            ${log.msg ? `<div class="log-field">
+                                <span class="log-label">msg:</span>
+                                <span class="log-value">${escapeHtml(log.msg)}</span>
+                            </div>` : ''}
+                            <div class="log-message-text">${escapeHtml(log.message || '')}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function loadAll() {
+            loadTimeline();
+            loadEventCounts();
+            loadRecentLogs();
+        }
+
+        // Load on page load
+        loadAll();
+    </script>
+</body>
+</html>
