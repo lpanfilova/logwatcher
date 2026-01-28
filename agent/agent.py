@@ -21,7 +21,7 @@ def run():
             last_flush = now
             try:
                 # SERVER URL!!!
-                send_with_retry("http://test-backend:8000/api/ingest", batch)
+                send_with_retry("http://backend-api:8000/api/ingest", batch)
             except Exception:
                 pass
 
