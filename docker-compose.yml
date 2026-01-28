@@ -1,6 +1,16 @@
 version: "3.9"
 
 services:
+  backend-api:
+    build: ./backend
+    container_name: backend-api
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+    depends_on:
+      - opensearch
   demo-app:
     build:
       context: ./demo-app
@@ -10,3 +20,33 @@ services:
       LOG_LEVEL: info
     ports:
       - "8888:8888"
+  agent:
+    build: ./agent
+    container_name: log_forwarding_agent
+    environment:
+      BACKEND_URL: "http://backend-api:8000/api/ingest"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - demo-app
+      - backend-api
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+    ports:
+      - "9200:9200"
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: opensearch-dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch
