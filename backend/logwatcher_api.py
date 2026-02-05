@@ -15,7 +15,7 @@ import os
 import json
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opensearchpy import OpenSearch
 
@@ -274,15 +274,32 @@ async def search_logs(
 
     return {
         "total": response["hits"]["total"]["value"],  # Total matching logs
-        "logs": [hit["_source"] for hit in response["hits"]["hits"]],  # Log documents
+        "logs": [
+            {"id": hit["_id"], **hit["_source"]}
+            for hit in response["hits"]["hits"]
+        ],  # Log documents with IDs
     }
+
+
+@app.get("/api/logs/{log_id}")
+async def get_log_by_id(log_id: str):
+    # Retrieve a single log entry by its OpenSearch document ID
+    # Returns 404 if the log is not found
+    try:
+        response = opensearch_client.get(index=INDEX_NAME, id=log_id)
+        return {
+            "id": response["_id"],
+            "log": response["_source"],
+        }
+    except Exception:
+        raise HTTPException(status_code=404, detail="Log not found")
 
 
 # =============================================================================
 # Metrics Endpoints - Used by Dashboard
 # =============================================================================
 
-@app.get("/api/metrics/summary")
+@app.get("/api/summary")
 async def get_metrics_summary():
     # Get overall summary statistics for the dashboard
     # Returns: total log count, list of services, list of sources, time range
@@ -367,45 +384,6 @@ async def get_metrics_timeline(
     }
 
 
-@app.get("/api/metrics/by-service")
-async def get_metrics_by_service():
-    # Get log counts grouped by service, with the most recent log for each
-    # Useful for showing which services are active and their latest activity
-
-    query = {
-        "size": 0,
-        "aggs": {
-            "by_service": {
-                "terms": {"field": "service", "size": 100},  # Group by service name
-                "aggs": {
-                    "recent": {
-                        # Get the most recent log for each service
-                        "top_hits": {
-                            "size": 1,
-                            "sort": [{"timestamp": {"order": "desc"}}],
-                            "_source": ["timestamp", "message"],
-                        }
-                    }
-                },
-            },
-        },
-    }
-
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
-    buckets = response.get("aggregations", {}).get("by_service", {}).get("buckets", [])
-
-    return {
-        "services": [
-            {
-                "service": bucket["key"],
-                "count": bucket["doc_count"],
-                "latest_log": bucket["recent"]["hits"]["hits"][0]["_source"] if bucket["recent"]["hits"]["hits"] else None,
-            }
-            for bucket in buckets
-        ],
-    }
-
-
 @app.get("/api/metrics/by-event")
 async def get_metrics_by_event():
     # Get log counts grouped by event type
@@ -426,30 +404,6 @@ async def get_metrics_by_event():
     return {
         "events": [
             {"event": bucket["key"], "count": bucket["doc_count"]}
-            for bucket in buckets
-        ],
-    }
-
-
-@app.get("/api/metrics/by-source")
-async def get_metrics_by_source():
-    # Get log counts grouped by source (stdout vs stderr)
-
-    query = {
-        "size": 0,
-        "aggs": {
-            "by_source": {
-                "terms": {"field": "source", "size": 100},  # Group by source
-            },
-        },
-    }
-
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
-    buckets = response.get("aggregations", {}).get("by_source", {}).get("buckets", [])
-
-    return {
-        "sources": [
-            {"source": bucket["key"], "count": bucket["doc_count"]}
             for bucket in buckets
         ],
     }

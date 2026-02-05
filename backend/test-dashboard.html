@@ -183,6 +183,53 @@
             font-weight: bold;
             font-size: 0.85rem;
         }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .summary-stat {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary-stat .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        .summary-stat .stat-label {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        .summary-list {
+            margin-top: 15px;
+        }
+        .summary-list-title {
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        .summary-list-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .summary-item {
+            background: #0f3460;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+        }
+        .summary-item .item-name {
+            color: #00d4ff;
+        }
+        .summary-item .item-count {
+            color: #888;
+            margin-left: 6px;
+        }
         .refresh-btn {
             display: block;
             margin: 0 auto 30px;
@@ -209,6 +256,43 @@
             background: #16213e;
             color: #eee;
         }
+        .lookup-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .lookup-controls input {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+            background: #0f3460;
+            color: #eee;
+            font-size: 0.9rem;
+        }
+        .lookup-controls button {
+            padding: 8px 20px;
+            background: #00d4ff;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .lookup-controls button:hover {
+            background: #00a8cc;
+        }
+        .lookup-result {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -222,6 +306,11 @@
 
     <div class="dashboard">
         <div class="card wide">
+            <h2>Summary</h2>
+            <div id="summary" class="loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
             <div class="timeline-header">
                 <h2>Logs Over Time (hourly)</h2>
                 <div class="timeline-count"><span id="timelineTotal">-</span> logs</div>
@@ -232,6 +321,15 @@
         <div class="card wide">
             <h2>Events by Type</h2>
             <div id="eventCounts" class="event-counts loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <h2>Lookup Log by ID</h2>
+            <div class="lookup-controls">
+                <input type="text" id="logIdInput" placeholder="Enter log ID (e.g., abc123xyz)">
+                <button onclick="lookupLogById()">Fetch Log</button>
+            </div>
+            <div id="logLookupResult" class="lookup-result" style="color:#888;">Enter a log ID and click "Fetch Log" to test the /api/logs/{log_id} endpoint</div>
         </div>
 
         <div class="card wide">
@@ -265,6 +363,63 @@
             const response = await fetch(getApiUrl() + endpoint);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.json();
+        }
+
+        async function loadSummary() {
+            const container = document.getElementById('summary');
+            try {
+                const data = await fetchApi('/api/summary');
+
+                const oldestDate = data.time_range.oldest ? new Date(data.time_range.oldest).toLocaleString() : 'N/A';
+                const newestDate = data.time_range.newest ? new Date(data.time_range.newest).toLocaleString() : 'N/A';
+
+                container.innerHTML = `
+                    <div class="summary-grid">
+                        <div class="summary-stat">
+                            <div class="stat-value">${data.total_logs.toLocaleString()}</div>
+                            <div class="stat-label">Total Logs</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="stat-value">${data.services.length}</div>
+                            <div class="stat-label">Services</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="stat-value">${data.sources.length}</div>
+                            <div class="stat-label">Sources</div>
+                        </div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-list-title">Services:</div>
+                        <div class="summary-list-items">
+                            ${data.services.map(s => `
+                                <div class="summary-item">
+                                    <span class="item-name">${escapeHtml(s.name)}</span>
+                                    <span class="item-count">(${s.count})</span>
+                                </div>
+                            `).join('') || '<span style="color:#888">None</span>'}
+                        </div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-list-title">Sources:</div>
+                        <div class="summary-list-items">
+                            ${data.sources.map(s => `
+                                <div class="summary-item">
+                                    <span class="item-name">${escapeHtml(s.name)}</span>
+                                    <span class="item-count">(${s.count})</span>
+                                </div>
+                            `).join('') || '<span style="color:#888">None</span>'}
+                        </div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-list-title">Time Range:</div>
+                        <div style="color:#ccc; font-size:0.85rem;">
+                            ${oldestDate} — ${newestDate}
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
         }
 
         async function loadTimeline() {
@@ -380,6 +535,10 @@
                         <div class="log-num">#${index + 1}</div>
                         <div class="log-content">
                             <div class="log-field">
+                                <span class="log-label">id:</span>
+                                <span class="log-value" style="color:#00d4ff; cursor:pointer;" onclick="document.getElementById('logIdInput').value='${escapeHtml(log.id || '')}'" title="Click to copy to lookup field">${escapeHtml(log.id || '(none)')}</span>
+                            </div>
+                            <div class="log-field">
                                 <span class="log-label">service:</span>
                                 <span class="log-value">${escapeHtml(log.service || '(none)')}</span>
                             </div>
@@ -416,7 +575,31 @@
             return div.innerHTML;
         }
 
+        async function lookupLogById() {
+            const logId = document.getElementById('logIdInput').value.trim();
+            const container = document.getElementById('logLookupResult');
+
+            if (!logId) {
+                container.style.color = '#ff6b6b';
+                container.textContent = 'Please enter a log ID';
+                return;
+            }
+
+            container.style.color = '#888';
+            container.textContent = 'Loading...';
+
+            try {
+                const data = await fetchApi(`/api/logs/${encodeURIComponent(logId)}`);
+                container.style.color = '#ccc';
+                container.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                container.style.color = '#ff6b6b';
+                container.textContent = `Error: ${e.message}\n\nMake sure the log ID exists in OpenSearch.`;
+            }
+        }
+
         function loadAll() {
+            loadSummary();
             loadTimeline();
             loadEventCounts();
             loadRecentLogs();
