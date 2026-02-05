@@ -20,16 +20,21 @@ services:
       LOG_LEVEL: info
     ports:
       - "8888:8888"
+  test-backend:
+    build: ./backend_ingest_test
+    container_name: test-backend
+    ports:
+      - "8001:8001"
   agent:
     build: ./agent
     container_name: log_forwarding_agent
     environment:
-      BACKEND_URL: "http://backend-api:8000/api/ingest"
+      CONFIG_PATH: "/etc/agent/config.yaml"
     volumes:
+      - ./agent/config.yaml:/etc/agent/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - demo-app
-      - backend-api
 
   opensearch:
     image: opensearchproject/opensearch:2.11.0

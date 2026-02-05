@@ -1,2 +1,3 @@
 docker
 requests
+PyYAML==6.0.2
