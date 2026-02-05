@@ -1,0 +1,15 @@
+backend_url: "http://backend-api:8000/api/ingest"
+target_container: "demo-app"
+
+batch:
+  max_events: 100
+  flush_seconds: 10
+
+shipper:
+  timeout_seconds: 5
+  max_attempts: 5
+  backoff_initial_seconds: 0.5
+  backoff_max_seconds: 5
+
+logging:
+  level: "INFO"

@@ -5,6 +5,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY src ./src
+COPY config.yaml ./config.yaml
+
+WORKDIR /app/src
+ENV CONFIG_PATH=/app/config.yaml
 
 CMD ["python", "-u", "agent.py"]
