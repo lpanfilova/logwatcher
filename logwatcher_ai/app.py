@@ -15,6 +15,7 @@ import os
 import asyncio
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 
 from schemas import AskRequest, AskResponse
@@ -86,3 +87,65 @@ def ask(req: AskRequest) -> AskResponse:
         matched_count=len(matched),
         answer=answer,
     )
+
+@app.get("/logs", response_class=HTMLResponse)
+def logs_page():
+    """
+    live log viewer (polls /logs/recent every second).
+    """
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Logs</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: monospace;
+      padding: 10px;
+    }
+    .log {
+      padding: 4px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .lvl-30 { color: #9ca3af; }
+    .lvl-40 { color: #fbbf24; }
+    .lvl-50 { color: #f87171; }
+  </style>
+</head>
+<body>
+  <h2> Live Logs (last 50)</h2>
+  <div id="logs"></div>
+
+  <script>
+    async function fetchLogs() {
+      const res = await fetch('/logs/recent?limit=50');
+      const logs = await res.json();
+      const container = document.getElementById('logs');
+      container.innerHTML = '';
+
+      logs.forEach(l => {
+        const div = document.createElement('div');
+        div.className = 'log lvl-' + l.level;
+        div.textContent =
+          `[${l.time}] level=${l.level} event=${l.event} msg=${l.msg || ''}`;
+        container.appendChild(div);
+      });
+
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    setInterval(fetchLogs, 1000);
+    fetchLogs();
+  </script>
+</body>
+</html>
+"""
+
+@app.get("/logs/recent")
+def recent_logs(limit: int = 50):
+    """
+    Return the most recent log events for live viewing.
+    """
+    return store.recent(limit=limit)

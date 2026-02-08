@@ -5,7 +5,7 @@ This version uses Chat Completions:
   client.chat.completions.create(...)
 
 Why:
-- Your error shows your installed OpenAI SDK does not have client.responses
+- errors shows installed OpenAI SDK does not have client.responses
 - Chat Completions is supported across more versions/environments
 """
 
@@ -47,7 +47,6 @@ def _chat(prompt: str, system: str) -> str:
 def build_filter_from_question(question: str) -> Dict[str, Any]:
     """
     Convert a natural-language question into a structured filter dict.
-
     Returns a dict with allowed keys only. If parsing fails, returns a safe default.
     """
     system = """
@@ -82,7 +81,7 @@ Always default to since_minutes = 10 if not specified.
 
 def explain_results(question: str, filt: Dict[str, Any], matched: List[LogEvent]) -> str:
     """
-    Answer the user's question using ONLY matched logs.
+    Answers the user's question using ONLY matched logs.
     """
     max_lines = 200
     lines = [e.model_dump() for e in matched[:max_lines]]

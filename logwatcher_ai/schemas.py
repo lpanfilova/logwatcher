@@ -58,7 +58,7 @@ class AskRequest(BaseModel):
     """
     Request body for POST /ask.
 
-    question: Natural language question like:
+    question:  Something like:
       "Show DB errors in last 5 minutes"
     max_logs: Limits how many recent logs we scan (performance + cost control).
     """

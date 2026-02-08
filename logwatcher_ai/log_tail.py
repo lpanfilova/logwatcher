@@ -1,5 +1,5 @@
 """
-Tail (follow) a log file like `tail -f`, but in pure Python.
+Tail (follow) a log file like `tail -f`, but in Python.
 
 - Reads new lines appended to the file
 - Each line is expected to be JSON
@@ -27,7 +27,7 @@ async def tail_file(
     # Open in text mode; errors="replace" prevents crashes on weird characters
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         # Seek to end: only follow NEW logs (like tail -f)
-        f.seek(0, 2)
+        f.seek(0, 0)  # read from start of file
 
         while True:
             line = f.readline()
