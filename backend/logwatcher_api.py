@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from opensearchpy import OpenSearch
+from opensearchpy import OpenSearch, NotFoundError
 
 # =============================================================================
 # Configuration
@@ -153,7 +153,10 @@ async def ingest_logs(request: Request):
     #
     # Returns: {"status": "ok", "indexed": 5, "errors": []}
 
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
 
     # The agent wraps logs in {"events": [...]} - unwrap it
     # Also handle if someone sends a raw list or single log object
@@ -163,6 +166,9 @@ async def ingest_logs(request: Request):
         logs = body
     else:
         logs = [body]
+
+    if not logs:
+        raise HTTPException(status_code=400, detail="No log events provided")
 
     # Ensure index exists with correct mapping before indexing any documents
     # This prevents OpenSearch from auto-creating with wrong field types
@@ -234,51 +240,55 @@ async def search_logs(
     # Example: /api/logs?service=demo-app&min_level=40&size=50
     # Returns logs from demo-app with level >= 40 (WARN, ERROR, FATAL)
 
-    # Build list of filter clauses for the OpenSearch query
-    must_clauses = []
+    try:
+        # Build list of filter clauses for the OpenSearch query
+        must_clauses = []
 
-    # Free-text search across all fields
-    if q and q != "*":
-        must_clauses.append({"query_string": {"query": q}})
+        # Free-text search across all fields
+        if q and q != "*":
+            must_clauses.append({"query_string": {"query": q}})
 
-    # Exact match filters for keyword fields
-    if service:
-        must_clauses.append({"term": {"service": service}})
+        # Exact match filters for keyword fields
+        if service:
+            must_clauses.append({"term": {"service": service}})
 
-    if source:
-        must_clauses.append({"term": {"source": source}})
+        if source:
+            must_clauses.append({"term": {"source": source}})
 
-    if level is not None:
-        must_clauses.append({"term": {"level": level}})
+        if level is not None:
+            must_clauses.append({"term": {"level": level}})
 
-    # Range filter for minimum log level
-    if min_level is not None:
-        must_clauses.append({"range": {"level": {"gte": min_level}}})
+        # Range filter for minimum log level
+        if min_level is not None:
+            must_clauses.append({"range": {"level": {"gte": min_level}}})
 
-    if event:
-        must_clauses.append({"term": {"event": event}})
+        if event:
+            must_clauses.append({"term": {"event": event}})
 
-    # Build the OpenSearch query
-    query = {
-        "query": {
-            "bool": {
-                # If no filters, match all documents
-                "must": must_clauses if must_clauses else [{"match_all": {}}]
-            }
-        },
-        "size": size,
-        "sort": [{"timestamp": {"order": "desc"}}],  # Newest logs first
-    }
+        # Build the OpenSearch query
+        query = {
+            "query": {
+                "bool": {
+                    # If no filters, match all documents
+                    "must": must_clauses if must_clauses else [{"match_all": {}}]
+                }
+            },
+            "size": size,
+            "sort": [{"timestamp": {"order": "desc"}}],  # Newest logs first
+        }
 
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
 
-    return {
-        "total": response["hits"]["total"]["value"],  # Total matching logs
-        "logs": [
-            {"id": hit["_id"], **hit["_source"]}
-            for hit in response["hits"]["hits"]
-        ],  # Log documents with IDs
-    }
+        return {
+            "total": response["hits"]["total"]["value"],  # Total matching logs
+            "logs": [
+                {"id": hit["_id"], **hit["_source"]}
+                for hit in response["hits"]["hits"]
+            ],  # Log documents with IDs
+        }
+    except Exception as e:
+        print(f"Error searching logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to search logs")
 
 
 @app.get("/api/logs/{log_id}")
@@ -291,8 +301,11 @@ async def get_log_by_id(log_id: str):
             "id": response["_id"],
             "log": response["_source"],
         }
-    except Exception:
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Log not found")
+    except Exception as e:
+        print(f"Error retrieving log {log_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve log")
 
 
 # =============================================================================
@@ -304,35 +317,39 @@ async def get_metrics_summary():
     # Get overall summary statistics for the dashboard
     # Returns: total log count, list of services, list of sources, time range
 
-    query = {
-        "size": 0,  # Don't return actual documents, just aggregations
-        "aggs": {
-            "total_logs": {"value_count": {"field": "timestamp"}},   # Count all logs
-            "services": {"terms": {"field": "service", "size": 50}}, # Group by service
-            "sources": {"terms": {"field": "source", "size": 50}},   # Group by source
-            "oldest_log": {"min": {"field": "timestamp"}},           # Earliest timestamp
-            "newest_log": {"max": {"field": "timestamp"}},           # Latest timestamp
-        },
-    }
+    try:
+        query = {
+            "size": 0,  # Don't return actual documents, just aggregations
+            "aggs": {
+                "total_logs": {"value_count": {"field": "timestamp"}},   # Count all logs
+                "services": {"terms": {"field": "service", "size": 50}}, # Group by service
+                "sources": {"terms": {"field": "source", "size": 50}},   # Group by source
+                "oldest_log": {"min": {"field": "timestamp"}},           # Earliest timestamp
+                "newest_log": {"max": {"field": "timestamp"}},           # Latest timestamp
+            },
+        }
 
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
-    aggs = response.get("aggregations", {})
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        aggs = response.get("aggregations", {})
 
-    return {
-        "total_logs": response["hits"]["total"]["value"],
-        "services": [
-            {"name": bucket["key"], "count": bucket["doc_count"]}
-            for bucket in aggs.get("services", {}).get("buckets", [])
-        ],
-        "sources": [
-            {"name": bucket["key"], "count": bucket["doc_count"]}
-            for bucket in aggs.get("sources", {}).get("buckets", [])
-        ],
-        "time_range": {
-            "oldest": aggs.get("oldest_log", {}).get("value_as_string"),
-            "newest": aggs.get("newest_log", {}).get("value_as_string"),
-        },
-    }
+        return {
+            "total_logs": response["hits"]["total"]["value"],
+            "services": [
+                {"name": bucket["key"], "count": bucket["doc_count"]}
+                for bucket in aggs.get("services", {}).get("buckets", [])
+            ],
+            "sources": [
+                {"name": bucket["key"], "count": bucket["doc_count"]}
+                for bucket in aggs.get("sources", {}).get("buckets", [])
+            ],
+            "time_range": {
+                "oldest": aggs.get("oldest_log", {}).get("value_as_string"),
+                "newest": aggs.get("newest_log", {}).get("value_as_string"),
+            },
+        }
+    except Exception as e:
+        print(f"Error fetching summary: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch summary")
 
 
 @app.get("/api/metrics/timeline")
@@ -347,41 +364,45 @@ async def get_metrics_timeline(
     # Example: /api/metrics/timeline?interval=1h
     # Returns: {"interval": "1h", "data": [{"timestamp": "...", "count": 42}, ...]}
 
-    # Build optional filters
-    filters = []
-    if service:
-        filters.append({"term": {"service": service}})
-    if source:
-        filters.append({"term": {"source": source}})
+    try:
+        # Build optional filters
+        filters = []
+        if service:
+            filters.append({"term": {"service": service}})
+        if source:
+            filters.append({"term": {"source": source}})
 
-    query = {
-        "size": 0,  # Only return aggregations
-        "query": {
-            "bool": {
-                "filter": filters if filters else [{"match_all": {}}]
-            }
-        },
-        "aggs": {
-            "logs_over_time": {
-                "date_histogram": {
-                    "field": "timestamp",
-                    "fixed_interval": interval,  # Group logs into time buckets
-                    "min_doc_count": 0,          # Include empty buckets
+        query = {
+            "size": 0,  # Only return aggregations
+            "query": {
+                "bool": {
+                    "filter": filters if filters else [{"match_all": {}}]
+                }
+            },
+            "aggs": {
+                "logs_over_time": {
+                    "date_histogram": {
+                        "field": "timestamp",
+                        "fixed_interval": interval,  # Group logs into time buckets
+                        "min_doc_count": 0,          # Include empty buckets
+                    },
                 },
             },
-        },
-    }
+        }
 
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
-    buckets = response.get("aggregations", {}).get("logs_over_time", {}).get("buckets", [])
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("logs_over_time", {}).get("buckets", [])
 
-    return {
-        "interval": interval,
-        "data": [
-            {"timestamp": bucket["key_as_string"], "count": bucket["doc_count"]}
-            for bucket in buckets
-        ],
-    }
+        return {
+            "interval": interval,
+            "data": [
+                {"timestamp": bucket["key_as_string"], "count": bucket["doc_count"]}
+                for bucket in buckets
+            ],
+        }
+    except Exception as e:
+        print(f"Error fetching timeline metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch timeline metrics")
 
 
 @app.get("/api/metrics/by-event")
@@ -389,24 +410,28 @@ async def get_metrics_by_event():
     # Get log counts grouped by event type
     # Used by the dashboard to show event type breakdown (e.g., http_request: 150)
 
-    query = {
-        "size": 0,
-        "aggs": {
-            "by_event": {
-                "terms": {"field": "event", "size": 100},  # Group by event type
+    try:
+        query = {
+            "size": 0,
+            "aggs": {
+                "by_event": {
+                    "terms": {"field": "event", "size": 100},  # Group by event type
+                },
             },
-        },
-    }
+        }
 
-    response = opensearch_client.search(index=INDEX_NAME, body=query)
-    buckets = response.get("aggregations", {}).get("by_event", {}).get("buckets", [])
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("by_event", {}).get("buckets", [])
 
-    return {
-        "events": [
-            {"event": bucket["key"], "count": bucket["doc_count"]}
-            for bucket in buckets
-        ],
-    }
+        return {
+            "events": [
+                {"event": bucket["key"], "count": bucket["doc_count"]}
+                for bucket in buckets
+            ],
+        }
+    except Exception as e:
+        print(f"Error fetching event metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch event metrics")
 
 
 # =============================================================================
