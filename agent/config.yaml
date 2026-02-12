@@ -11,9 +11,14 @@ shipper:
   backoff_initial_seconds: 0.5
   backoff_max_seconds: 5
 
-logging:
+log:
   level: "INFO"
 
 run:
   mode: "docker"
   local_test_interval_seconds: 2
+
+spool:
+  dir: "./spool"
+  max_files: 10000
+  max_bytes: 536870912

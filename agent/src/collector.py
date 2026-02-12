@@ -5,7 +5,7 @@ from typing import Iterator, Dict
 import time
 
 def iter_events(cfg) -> Iterator[Dict]:
-    mode = getattr(cfg, "mode", "docker")
+    mode = getattr(cfg, "run_mode")
     if mode == "local_test":
         yield from _iter_local_test_events(cfg)
     else:
@@ -26,7 +26,7 @@ def _iter_stream_container_logs(target_container: str) -> Iterator[Dict]:
         }
 
 def _iter_local_test_events(cfg) -> Iterator[Dict]:
-    interval = float(getattr(cfg, "local_test_interval_seconds", 2))
+    interval = float(getattr(cfg, "run_local_test_interval_seconds", 2))
     i = 0
     while True:
         i += 1
