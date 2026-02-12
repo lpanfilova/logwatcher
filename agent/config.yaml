@@ -13,3 +13,7 @@ shipper:
 
 logging:
   level: "INFO"
+
+run:
+  mode: "docker"
+  local_test_interval_seconds: 2

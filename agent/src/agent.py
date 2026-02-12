@@ -2,7 +2,7 @@
 import time
 import logging
 
-from collector import stream_container_logs
+from collector import iter_events
 from shipper import send_with_retry
 from config import load_config
 
@@ -24,7 +24,7 @@ def run():
     last_flush = time.time()
     dropped_batches = 0
 
-    for event in stream_container_logs(cfg.target_container):
+    for event in iter_events(cfg):
         buf.append(event)
 
         now = time.time()

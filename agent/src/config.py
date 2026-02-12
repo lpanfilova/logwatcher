@@ -14,6 +14,8 @@ class Config:
     shipper_backoff_initial_seconds: float
     shipper_backoff_max_seconds: float
     log_level: str
+    mode: str
+    local_test_interval_seconds: float
 
 def load_config() -> Config:
     path = os.getenv("CONFIG_PATH", "/etc/agent/config.yaml")
@@ -23,6 +25,7 @@ def load_config() -> Config:
     batch = data.get("batch", {})
     shipper = data.get("shipper", {})
     log_cfg = data.get("logging", {})
+    run_cfg = data.get("run", {})
 
     return Config(
         backend_url = data["backend_url"],
@@ -34,4 +37,6 @@ def load_config() -> Config:
         shipper_backoff_initial_seconds=float(shipper.get("backoff_initial_seconds", 0.5)),
         shipper_backoff_max_seconds=float(shipper.get("backoff_max_seconds", 5)),
         log_level=str(log_cfg.get("level", "INFO")).upper(),
+        mode=str(run_cfg.get("mode", "docker")),
+        local_test_interval_seconds=float(run_cfg.get("local_test_interval_seconds", 2))
     )
