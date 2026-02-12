@@ -100,7 +100,6 @@ const Dashboard = () => {
                   <th>Service</th>
                   <th>Level</th>
                   <th>Message</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,10 +113,6 @@ const Dashboard = () => {
                       <td>{log.service}</td>
                       <td>{log.level}</td>
                       <td>{log.message}</td>
-                      <td>
-                        {/* Example action button */}
-                        <button className="btn btn-sm btn-primary">Edit</button>
-                      </td>
                     </tr>
                   )
                 )}
