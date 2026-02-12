@@ -14,6 +14,11 @@ class Config:
     shipper_backoff_initial_seconds: float
     shipper_backoff_max_seconds: float
     log_level: str
+    run_mode: str
+    run_local_test_interval_seconds: float
+    spool_dir: str
+    spool_max_files: int
+    spool_max_bytes: int
 
 def load_config() -> Config:
     path = os.getenv("CONFIG_PATH", "/etc/agent/config.yaml")
@@ -22,7 +27,9 @@ def load_config() -> Config:
 
     batch = data.get("batch", {})
     shipper = data.get("shipper", {})
-    log_cfg = data.get("logging", {})
+    log_cfg = data.get("log", {})
+    run_cfg = data.get("run", {})
+    spool_cfg = data.get("spool", {})
 
     return Config(
         backend_url = data["backend_url"],
@@ -34,4 +41,9 @@ def load_config() -> Config:
         shipper_backoff_initial_seconds=float(shipper.get("backoff_initial_seconds", 0.5)),
         shipper_backoff_max_seconds=float(shipper.get("backoff_max_seconds", 5)),
         log_level=str(log_cfg.get("level", "INFO")).upper(),
+        run_mode=str(run_cfg.get("mode", "docker")),
+        run_local_test_interval_seconds=float(run_cfg.get("local_test_interval_seconds", 2)),
+        spool_dir=str(spool_cfg.get("dir")),
+        spool_max_files=int(spool_cfg.get("max_files")),
+        spool_max_bytes=int(spool_cfg.get("max_bytes")),
     )

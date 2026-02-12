@@ -23,6 +23,7 @@ out/
 
 # Python virtual environments
 venv/
+.venv/
 backend_ingest_test/venv/
 .env/
 .env*/
@@ -32,3 +33,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# local config
+config.local.yaml
+*.local.yaml
