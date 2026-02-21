@@ -1,16 +1,10 @@
-# Build stage
 FROM node:20-alpine3.23
-
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install
-
-# Copy source code
 COPY . .
+
 EXPOSE 5173
-# Start server
-CMD ["npm", "run", "dev"]
+CMD ["npm","run","dev","--","--host","0.0.0.0","--port","5173"]
