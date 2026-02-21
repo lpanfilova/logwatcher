@@ -36,8 +36,8 @@ const Dashboard = () => {
         const summaryResponse = await apiClient.getSummary();
         setSummary(summaryResponse);
 
-        // Fetch timeline data for the chart
-        const timelineResponse = await apiClient.getTimelineMetrics('1h');
+        // Fetch timeline data with finer granularity for minute-level visibility
+        const timelineResponse = await apiClient.getTimelineMetrics("1m");
 
         // Update chart data
         setChartData({
@@ -110,6 +110,14 @@ const Dashboard = () => {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    scales: {
+      x: {
+        ticks: {
+          autoSkip: true,
+          maxTicksLimit: 16,
+        },
+      },
+    },
   };
 
   return (
