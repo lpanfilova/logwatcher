@@ -1,10 +1,11 @@
-import  Nav from "react-bootstrap/Nav";
-import { NavLink}  from "react-router-dom";
+import Nav from "react-bootstrap/Nav";
+import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { FaFileAlt} from "react-icons/fa"; 
+import { FaFileAlt } from "react-icons/fa";
+import {type CSSProperties } from "react";
 
 const Sidebar = () => {
-  const linkStyle = {
+  const linkStyle: CSSProperties = {
     padding: "10px 15px",
     borderRadius: "5px",
     marginBottom: "5px",
@@ -12,6 +13,13 @@ const Sidebar = () => {
     alignItems: "center",
     gap: "10px", 
   };
+
+  const getNavLinkStyle = (isActive: boolean): CSSProperties => ({
+    ...linkStyle,
+    color: isActive ? "#343a40" : "white",
+    backgroundColor: isActive ? "#ffc107" : "transparent",
+    fontWeight: isActive ? "bold" : "normal",
+  });
 
   return (
     <div
@@ -33,35 +41,23 @@ const Sidebar = () => {
 
       <Nav className="flex-column">
         <Nav.Item>
-          <Nav.Link
-            as={NavLink}
+          <NavLink
             to="/"
             end
-            style={({ isActive }) => ({
-              ...linkStyle,
-              color: isActive ? "#343a40" : "white",
-              backgroundColor: isActive ? "#ffc107" : "transparent",
-              fontWeight: isActive ? "bold" : "normal",
-            })}
+            style={({ isActive }) => getNavLinkStyle(isActive)}
           >
             <RxDashboard />
             Dashboard
-          </Nav.Link>
+          </NavLink>
         </Nav.Item>
 
         <Nav.Item>
-          <Nav.Link
-            as={NavLink}
+          <NavLink
             to="/logs"
-            style={({ isActive }) => ({
-              ...linkStyle,
-              color: isActive ? "#343a40" : "white",
-              backgroundColor: isActive ? "#ffc107" : "transparent",
-              fontWeight: isActive ? "bold" : "normal",
-            })}
+            style={({ isActive }) => getNavLinkStyle(isActive)}
           >
             <FaFileAlt /> Logs
-          </Nav.Link>
+          </NavLink>
         </Nav.Item>
       </Nav>
     </div>
