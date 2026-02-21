@@ -1,10 +1,10 @@
 import { Col, Container, Row, Table } from "react-bootstrap";
-import { Line } from "react-chartjs-2";
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from "chart.js";
+import { Bar } from "react-chartjs-2";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from "chart.js";
 import { useEffect, useState } from "react";
 import { apiClient, type LogEntry, type SummaryData, mapLogLevelToString, formatTimestamp } from "../api";
 import { getMockLogs, getMockErrorTrend, countIncidents } from "../mockData.ts";
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const Dashboard = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -18,10 +18,12 @@ const Dashboard = () => {
       {
         label: "Log Events",
         data: [] as number[],
-        fill: true,
-        backgroundColor: "rgba(93, 171, 190, 0.2)",
+        backgroundColor: "rgba(75, 126, 192, 0.7)",
         borderColor: "rgb(75, 126, 192)",
-        tension: 0.1,
+        borderWidth: 1,
+        borderRadius: 4,
+        barPercentage: 0.9,
+        categoryPercentage: 0.9,
       },
     ],
   });
@@ -49,10 +51,12 @@ const Dashboard = () => {
             {
               label: "Log Events",
               data: timelineResponse.data.map(point => point.count),
-              fill: true,
-              backgroundColor: "rgba(93, 171, 190, 0.2)",
+              backgroundColor: "rgba(75, 126, 192, 0.7)",
               borderColor: "rgb(75, 126, 192)",
-              tension: 0.1,
+              borderWidth: 1,
+              borderRadius: 4,
+              barPercentage: 0.9,
+              categoryPercentage: 0.9,
             },
           ],
         });
@@ -83,10 +87,12 @@ const Dashboard = () => {
             {
               label: "Log Events",
               data: mockTrend.value,
-              fill: true,
-              backgroundColor: "rgba(93, 171, 190, 0.2)",
+              backgroundColor: "rgba(75, 126, 192, 0.7)",
               borderColor: "rgb(75, 126, 192)",
-              tension: 0.1,
+              borderWidth: 1,
+              borderRadius: 4,
+              barPercentage: 0.9,
+              categoryPercentage: 0.9,
             },
           ],
         });
@@ -116,6 +122,9 @@ const Dashboard = () => {
           autoSkip: true,
           maxTicksLimit: 16,
         },
+      },
+      y: {
+        beginAtZero: true,
       },
     },
   };
@@ -204,7 +213,7 @@ const Dashboard = () => {
               {loading ? (
                 <div className="text-center py-4">Loading chart data...</div>
               ) : (
-                <Line data={chartData} options={chartOptions} />
+                <Bar data={chartData} options={chartOptions} />
               )}
             </div>
           </div>
