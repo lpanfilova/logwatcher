@@ -1,7 +1,24 @@
 import { useState, useEffect } from "react";
-import { Container, Table, Row, Col, Form, InputGroup, Spinner, Alert, Button } from "react-bootstrap";
+import {
+  Container,
+  Table,
+  Row,
+  Col,
+  Form,
+  InputGroup,
+  Spinner,
+  Alert,
+  Button,
+} from "react-bootstrap";
+import { Link } from "react-router-dom";
 import { BsSearch } from "react-icons/bs";
-import { apiClient, type LogEntry, type LogsResponse, mapLogLevelToString, formatTimestamp } from "../api";
+import {
+  apiClient,
+  type LogEntry,
+  type LogsResponse,
+  mapLogLevelToString,
+  formatTimestamp,
+} from "../api";
 
 const Logs = () => {
   // State management
@@ -45,7 +62,6 @@ const Logs = () => {
       const response: LogsResponse = await apiClient.getLogs(params);
       setLogs(response.logs);
       setTotalLogs(response.total);
-
     } catch (err) {
       console.error("Failed to fetch logs:", err);
       setError("Failed to load logs from server");
@@ -92,7 +108,9 @@ const Logs = () => {
         <h3 className="text-center p-2">
           System Logs
           {totalLogs > 0 && (
-            <small className="text-muted d-block">Total: {totalLogs} logs</small>
+            <small className="text-muted d-block">
+              Total: {totalLogs} logs
+            </small>
           )}
         </h3>
       </div>
@@ -119,21 +137,35 @@ const Logs = () => {
           />
         </Col>
         <Col md={2}>
-          <Form.Select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
-            {levelOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+          <Form.Select
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+          >
+            {levelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </Form.Select>
         </Col>
         <Col md={2}>
-          <Form.Select value={minLevelFilter} onChange={(e) => setMinLevelFilter(e.target.value)}>
-            {minLevelOptions.map(option => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+          <Form.Select
+            value={minLevelFilter}
+            onChange={(e) => setMinLevelFilter(e.target.value)}
+          >
+            {minLevelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
             ))}
           </Form.Select>
         </Col>
         <Col md={2}>
-          <Button variant="outline-primary" onClick={fetchLogs} disabled={loading}>
+          <Button
+            variant="outline-primary"
+            onClick={fetchLogs}
+            disabled={loading}
+          >
             {loading ? "Loading..." : "Refresh"}
           </Button>
         </Col>
@@ -174,7 +206,13 @@ const Logs = () => {
       {/* Styled Table */}
       {!loading && logs.length > 0 && (
         <Row className="shadow rounded border bg-white p-3">
-          <Table striped bordered hover responsive className="shadow-sm align-middle rounded border text-center">
+          <Table
+            striped
+            bordered
+            hover
+            responsive
+            className="shadow-sm align-middle rounded border text-center"
+          >
             <thead className="table-dark rounded border text-center">
               <tr>
                 <th>ID</th>
@@ -187,7 +225,9 @@ const Logs = () => {
             <tbody>
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td>{log.id}</td>
+                  <td>
+                    <Link to={`/logs/${log.id}`}>{log.id}</Link>
+                  </td>
                   <td>{formatTimestamp(log.timestamp)}</td>
                   <td>{log.service}</td>
                   <td className={levelColor(log.level)}>
