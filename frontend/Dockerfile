@@ -11,6 +11,6 @@ RUN npm install
 
 # Copy source code
 COPY . .
-
+EXPOSE 5173
 # Start server
-RUN npm run dev
+CMD ["npm", "run", "dev"]
