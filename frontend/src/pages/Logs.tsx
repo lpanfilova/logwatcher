@@ -47,8 +47,8 @@ const Logs = () => {
         params.q = searchQuery.trim();
       }
 
-      if (serviceFilter) {
-        params.service = serviceFilter;
+      if (serviceFilter.trim()) {
+        params.service = serviceFilter.trim();
       }
 
       if (levelFilter) {
@@ -131,7 +131,7 @@ const Logs = () => {
         </Col>
         <Col md={2}>
           <Form.Control
-            placeholder="Filter Service"
+            placeholder="Filter service (partial name)"
             value={serviceFilter}
             onChange={(e) => setServiceFilter(e.target.value)}
           />

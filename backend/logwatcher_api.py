@@ -248,9 +248,16 @@ async def search_logs(
         if q and q != "*":
             must_clauses.append({"query_string": {"query": q}})
 
-        # Exact match filters for keyword fields
-        if service:
-            must_clauses.append({"term": {"service": service}})
+        # Service filter supports partial/case-insensitive matching for UI text input
+        if service and service.strip():
+            must_clauses.append({
+                "wildcard": {
+                    "service": {
+                        "value": f"*{service.strip()}*",
+                        "case_insensitive": True,
+                    }
+                }
+            })
 
         if source:
             must_clauses.append({"term": {"source": source}})
