@@ -37,3 +37,4 @@ __pycache__/
 # local config
 config.local.yaml
 *.local.yaml
+.DS_Store

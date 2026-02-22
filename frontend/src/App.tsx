@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Logs from "./pages/Logs";
+import LogDetails from "./pages/LogDetails";
 import Sidebar from "./pages/Sidebar";
 
 function App() {
-
   return (
     <BrowserRouter>
       <div style={{ display: "flex" }}>
@@ -13,11 +13,12 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/logs/:id" element={<LogDetails />} />
           </Routes>
         </div>
       </div>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;
