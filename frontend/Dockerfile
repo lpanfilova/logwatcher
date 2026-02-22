@@ -1,14 +1,10 @@
-FROM node:20-alpine
+FROM node:20-alpine3.23
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
 
-COPY src ./src
-COPY index.html ./
-COPY vite.config.ts ./
-COPY tsconfig*.json ./
-COPY eslint.config.js ./
+COPY . .
 
 EXPOSE 5173
 CMD ["npm","run","dev","--","--host","0.0.0.0","--port","5173"]
