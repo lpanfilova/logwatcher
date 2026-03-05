@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from typing import Any, Dict, List
+from contextlib import asynccontextmanager
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     print("Server has started!")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/api/ingest")
 async def ingest(payload: Dict[str, Any]):
