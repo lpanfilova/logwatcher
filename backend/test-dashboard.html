@@ -324,6 +324,50 @@
         </div>
 
         <div class="card wide">
+            <div class="timeline-header">
+                <h2>Log Volume Over Time (hourly)</h2>
+                <div class="timeline-count"><span id="logVolumeTotal">-</span> logs</div>
+            </div>
+            <div id="logVolume" class="timeline-bar loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <div class="timeline-header">
+                <h2>Errors Over Time (hourly)</h2>
+                <div class="timeline-count" style="color:#ff6b6b;"><span id="errorTotal">-</span> errors</div>
+            </div>
+            <div id="errorsOverTime" class="timeline-bar loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <h2>Top Errors</h2>
+            <div id="topErrors" class="loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
+            <div class="timeline-header">
+                <h2>Incident Detection</h2>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label style="color:#888; font-size:0.85rem;">Window (min):</label>
+                    <select id="incidentWindow" onchange="loadIncidents()" style="padding:4px 8px; border-radius:5px; border:1px solid #0f3460; background:#0f3460; color:#eee; font-size:0.85rem;">
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="30">30</option>
+                        <option value="60">60</option>
+                    </select>
+                    <label style="color:#888; font-size:0.85rem;">Threshold:</label>
+                    <select id="incidentThreshold" onchange="loadIncidents()" style="padding:4px 8px; border-radius:5px; border:1px solid #0f3460; background:#0f3460; color:#eee; font-size:0.85rem;">
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                    </select>
+                </div>
+            </div>
+            <div id="incidents" class="loading">Loading...</div>
+        </div>
+
+        <div class="card wide">
             <h2>Lookup Log by ID</h2>
             <div class="lookup-controls">
                 <input type="text" id="logIdInput" placeholder="Enter log ID (e.g., abc123xyz)">
@@ -598,11 +642,125 @@
             }
         }
 
+        async function loadLogVolume() {
+            const container = document.getElementById('logVolume');
+            const totalEl = document.getElementById('logVolumeTotal');
+            try {
+                const data = await fetchApi('/api/metrics/log-volume?interval=1h');
+                if (data.data.length === 0) {
+                    container.innerHTML = '<div class="loading">No data</div>';
+                    totalEl.textContent = '0';
+                    return;
+                }
+                const total = data.data.reduce((sum, d) => sum + d.total, 0);
+                totalEl.textContent = total.toLocaleString();
+                const maxCount = Math.max(...data.data.map(d => d.total), 1);
+                container.innerHTML = data.data.slice(-24).map(d => {
+                    const height = Math.max((d.total / maxCount) * 100, 2);
+                    const time = new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                    return `<div class="bar" style="height: ${height}%" title="${time}: ${d.total} logs"></div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+                totalEl.textContent = '-';
+            }
+        }
+
+        async function loadErrorsOverTime() {
+            const container = document.getElementById('errorsOverTime');
+            const totalEl = document.getElementById('errorTotal');
+            try {
+                const data = await fetchApi('/api/metrics/errors?interval=1h');
+                totalEl.textContent = data.total_errors.toLocaleString();
+                if (data.data.length === 0) {
+                    container.innerHTML = '<div class="loading">No errors</div>';
+                    return;
+                }
+                const maxCount = Math.max(...data.data.map(d => d.count), 1);
+                container.innerHTML = data.data.slice(-24).map(d => {
+                    const height = Math.max((d.count / maxCount) * 100, 2);
+                    const time = new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                    return `<div class="bar" style="height: ${height}%; background: #ff6b6b;" title="${time}: ${d.count} errors"></div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+                totalEl.textContent = '-';
+            }
+        }
+
+        async function loadTopErrors() {
+            const container = document.getElementById('topErrors');
+            try {
+                const data = await fetchApi('/api/metrics/top-errors?size=10');
+                if (data.top_errors.length === 0) {
+                    container.innerHTML = '<div class="loading">No errors found</div>';
+                    return;
+                }
+                const maxCount = Math.max(...data.top_errors.map(e => e.count), 1);
+                container.innerHTML = data.top_errors.map(e => {
+                    const barWidth = Math.max((e.count / maxCount) * 100, 2);
+                    return `
+                        <div style="margin-bottom: 12px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span style="color:#ff6b6b; font-size:0.85rem;">${escapeHtml(e.event)}</span>
+                                <span style="color:#888; font-size:0.85rem; margin-left:10px; white-space:nowrap;">${e.count}x</span>
+                            </div>
+                            <div style="background:#0f3460; border-radius:3px; height:6px;">
+                                <div style="background:#ff6b6b; width:${barWidth}%; height:100%; border-radius:3px;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadIncidents() {
+            const container = document.getElementById('incidents');
+            const window_minutes = document.getElementById('incidentWindow').value;
+            const threshold = document.getElementById('incidentThreshold').value;
+            container.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const data = await fetchApi(`/api/incidents?window_minutes=${window_minutes}&threshold=${threshold}`);
+                if (data.incidents.length === 0) {
+                    container.innerHTML = `<div style="color:#4caf50; text-align:center; padding:20px;">✓ No incidents detected in the last ${window_minutes} minutes</div>`;
+                    return;
+                }
+                container.innerHTML = data.incidents.map(inc => {
+                    const isOpen = inc.status === 'open';
+                    const statusColor = isOpen ? '#ff6b6b' : '#4caf50';
+                    const statusLabel = isOpen ? 'OPEN' : 'RESOLVED';
+                    const service = Array.isArray(inc.service) ? inc.service.join(', ') : inc.service;
+                    return `
+                        <div style="background:#0f3460; border-radius:8px; padding:15px; margin-bottom:12px; border-left:4px solid ${statusColor};">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span style="color:#ff6b6b; font-weight:bold; font-size:1rem;">${escapeHtml(inc.event)}</span>
+                                <span style="background:${statusColor}; color:#1a1a2e; padding:3px 10px; border-radius:10px; font-size:0.8rem; font-weight:bold;">${statusLabel}</span>
+                            </div>
+                            <div style="display:flex; gap:20px; font-size:0.85rem; color:#888;">
+                                <span>Service: <span style="color:#ccc;">${escapeHtml(String(service))}</span></span>
+                                <span>Count: <span style="color:#ff6b6b; font-weight:bold;">${inc.count}</span></span>
+                                <span>First: <span style="color:#ccc;">${new Date(inc.first_seen).toLocaleTimeString()}</span></span>
+                                <span>Last: <span style="color:#ccc;">${new Date(inc.last_seen).toLocaleTimeString()}</span></span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
         function loadAll() {
             loadSummary();
             loadTimeline();
             loadEventCounts();
             loadRecentLogs();
+            loadLogVolume();
+            loadErrorsOverTime();
+            loadTopErrors();
+            loadIncidents();
         }
 
         // Load on page load
