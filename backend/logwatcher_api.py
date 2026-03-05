@@ -441,12 +441,245 @@ async def get_metrics_by_event():
         raise HTTPException(status_code=500, detail="Failed to fetch event metrics")
 
 
+@app.get("/api/metrics/log-volume")
+async def get_metrics_log_volume(
+    interval: str = "1h",   # Time bucket size (e.g., "1m", "1h", "1d")
+    service: str = None,    # Optional filter by service
+):
+    # Get total log volume over time, broken down by log level
+    # Returns time buckets with counts per level (info, warn, error)
+    try:
+        filters = []
+        if service:
+            filters.append({"term": {"service": service}})
+
+        query = {
+            "size": 0,
+            "query": {
+                "bool": {
+                    "filter": filters if filters else [{"match_all": {}}]
+                }
+            },
+            "aggs": {
+                "volume_over_time": {
+                    "date_histogram": {
+                        "field": "timestamp",
+                        "fixed_interval": interval,
+                        "min_doc_count": 0,
+                    },
+                    "aggs": {
+                        "by_level": {
+                            "terms": {"field": "level", "size": 10}
+                        }
+                    },
+                },
+            },
+        }
+
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("volume_over_time", {}).get("buckets", [])
+
+        return {
+            "interval": interval,
+            "data": [
+                {
+                    "timestamp": bucket["key_as_string"],
+                    "total": bucket["doc_count"],
+                    "by_level": {
+                        str(lvl["key"]): lvl["doc_count"]
+                        for lvl in bucket.get("by_level", {}).get("buckets", [])
+                    },
+                }
+                for bucket in buckets
+            ],
+        }
+    except Exception as e:
+        print(f"Error fetching log volume: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch log volume")
+
+
+@app.get("/api/metrics/errors")
+async def get_metrics_errors(
+    interval: str = "1h",   # Time bucket size (e.g., "1m", "1h", "1d")
+    service: str = None,    # Optional filter by service
+):
+    # Get error log counts over time (level >= 50)
+    # Returns time buckets with error counts for trending error rate on the dashboard
+    try:
+        filters = [{"range": {"level": {"gte": 50}}}]  # ERROR and above
+        if service:
+            filters.append({"term": {"service": service}})
+
+        query = {
+            "size": 0,
+            "query": {
+                "bool": {
+                    "filter": filters
+                }
+            },
+            "aggs": {
+                "errors_over_time": {
+                    "date_histogram": {
+                        "field": "timestamp",
+                        "fixed_interval": interval,
+                        "min_doc_count": 0,
+                    },
+                },
+            },
+        }
+
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("errors_over_time", {}).get("buckets", [])
+
+        return {
+            "interval": interval,
+            "total_errors": response["hits"]["total"]["value"],
+            "data": [
+                {"timestamp": bucket["key_as_string"], "count": bucket["doc_count"]}
+                for bucket in buckets
+            ],
+        }
+    except Exception as e:
+        print(f"Error fetching error metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch error metrics")
+
+
+@app.get("/api/metrics/top-errors")
+async def get_metrics_top_errors(
+    size: int = 10,         # Number of top errors to return
+    service: str = None,    # Optional filter by service
+):
+    # Get the most frequently occurring error messages
+    # Returns a ranked list of error messages with their occurrence count
+    try:
+        filters = [{"range": {"level": {"gte": 50}}}]  # ERROR and above
+        if service:
+            filters.append({"term": {"service": service}})
+
+        query = {
+            "size": 0,
+            "query": {
+                "bool": {
+                    "filter": filters
+                }
+            },
+            "aggs": {
+                "top_errors": {
+                    "terms": {
+                        "field": "event",
+                        "size": size,
+                        "order": {"_count": "desc"},
+                    }
+                }
+            },
+        }
+
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("top_errors", {}).get("buckets", [])
+
+        return {
+            "top_errors": [
+                {"event": bucket["key"], "count": bucket["doc_count"]}
+                for bucket in buckets
+            ],
+        }
+    except Exception as e:
+        print(f"Error fetching top errors: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch top errors")
+
+
+# =============================================================================
+# Incident Detection Endpoint - work in progress
+# =============================================================================
+
+@app.get("/api/incidents")
+async def get_incidents(
+    window_minutes: int = 5,    # Rolling time window to look back
+    threshold: int = 3,         # Min occurrences of same error to be an incident
+    service: str = None,        # Optional filter by service
+):
+    # Detect incidents by finding error event types that exceed the threshold
+    # within the rolling time window. Status is "open" if errors are still
+    # occurring in the most recent half of the window, "resolved" otherwise.
+    try:
+        now = datetime.now(tz=timezone.utc)
+        window_start = now.timestamp() - (window_minutes * 60)
+        window_start_ms = int(window_start * 1000)  # OpenSearch uses milliseconds
+
+        filters = [
+            {"range": {"level": {"gte": 50}}},  # ERROR and above
+            {"range": {"timestamp": {"gte": window_start_ms}}}
+        ]
+        if service:
+            filters.append({"term": {"service": service}})
+
+        query = {
+            "size": 0,
+            "query": {
+                "bool": {"filter": filters}
+            },
+            "aggs": {
+                "by_event": {
+                    "terms": {
+                        "field": "event",
+                        "size": 50,
+                        "order": {"_count": "desc"},
+                    },
+                    "aggs": {
+                        "first_seen": {"min": {"field": "timestamp"}},
+                        "last_seen":  {"max": {"field": "timestamp"}},
+                        "by_service": {"terms": {"field": "service", "size": 10}},
+                    },
+                }
+            },
+        }
+
+        response = opensearch_client.search(index=INDEX_NAME, body=query)
+        buckets = response.get("aggregations", {}).get("by_event", {}).get("buckets", [])
+
+        # Half-window threshold: if the last error was in the first half of the
+        # window and nothing since, consider it resolved
+        half_window_ms = (window_minutes * 60 * 1000) / 2
+        now_ms = now.timestamp() * 1000
+
+        incidents = []
+        for bucket in buckets:
+            count = bucket["doc_count"]
+            if count < threshold:
+                continue  # Below threshold — not an incident
+
+            last_seen_ms = bucket["last_seen"]["value"]
+            first_seen_ms = bucket["first_seen"]["value"]
+            status = "open" if (now_ms - last_seen_ms) < half_window_ms else "resolved"
+
+            services = [
+                b["key"] for b in bucket.get("by_service", {}).get("buckets", [])
+            ]
+
+            incidents.append({
+                "event": bucket["key"],
+                "count": count,
+                "service": services[0] if len(services) == 1 else services,
+                "first_seen": datetime.fromtimestamp(first_seen_ms / 1000, tz=timezone.utc).isoformat(),
+                "last_seen":  datetime.fromtimestamp(last_seen_ms  / 1000, tz=timezone.utc).isoformat(),
+                "status": status,
+            })
+
+        return {
+            "window_minutes": window_minutes,
+            "threshold": threshold,
+            "incidents": incidents,
+        }
+    except Exception as e:
+        print(f"Error detecting incidents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to detect incidents")
+
+
 # =============================================================================
 # Main Entry Point
 # =============================================================================
 
 if __name__ == "__main__":
     # Run the API server directly with: python logwatcher_api.py
-    # In production, use: uvicorn logwatcher_api:app --host 0.0.0.0 --port 8000
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
