@@ -1,3 +1,4 @@
 docker
 requests
 PyYAML==6.0.2
+prometheus_client==0.20.0

@@ -3,6 +3,7 @@
 import requests
 import time
 from typing import List, Dict
+from observability import metrics
 
 def post_batch(server_url: str, batch: List[Dict], timeout_seconds: float) -> None:
     payload = {"events": batch}
@@ -22,8 +23,10 @@ def send_with_retry(
     for attempt in range(1, max_attempts + 1):
         try:
             post_batch(server_url, batch, timeout_seconds)
+            metrics.logs_sent.inc(len(batch))
             return
-        except Exception:
+        except requests.exceptions.RequestException:
+            metrics.send_failures.inc()
             if attempt == max_attempts:
                 raise
             time.sleep(backoff)

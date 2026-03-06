@@ -4,7 +4,8 @@ import time
 import glob
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from observability import metrics
 
 from shipper import send_with_retry
 
@@ -21,6 +22,10 @@ class DiskSpool:
         self.cfg = cfg
         os.makedirs(self.cfg.spool_dir, exist_ok=True)
         self._counter = 0
+        num_files,total_bytes = self._dir_usage()
+        metrics.spool_bytes.set(total_bytes)
+        metrics.spool_files.set(num_files)
+
     
     def _now_ms(self) -> int:
         return int(time.time() * 1000)
@@ -44,8 +49,9 @@ class DiskSpool:
         files.sort()
         return files
     
-    def _dir_usage(self) -> Tuple[int, int]:
-        files = self.list_batches_oldest_first()
+    def _dir_usage(self, files: Optional[List[str]] = None) -> Tuple[int, int]:
+        if files is None:
+            files = self.list_batches_oldest_first()
         total = 0
         for p in files:
             try:
@@ -70,14 +76,18 @@ class DiskSpool:
                 os.remove(oldest)
                 num_files -=1
                 total_bytes -= oldest_file_size
+                metrics.dropped_batches.inc()
             except FileNotFoundError:
                 continue
+        
+        metrics.spool_files.set(num_files)
+        metrics.spool_bytes.set(total_bytes)
 
     def persist_batch(self, batch: List[Dict]) -> str:
         self._enforce_limits_drop_oldest()
 
         name = self._batch_filename()
-        # atomic write
+        
         tmp_path = self._tmp_path(name)
         final_path = self._final_path(name)
 
@@ -89,7 +99,12 @@ class DiskSpool:
             if self.cfg.fsync_on_write:
                 os.fsync(f.fileno())
         
+        # atomic write
         os.replace(tmp_path, final_path)
+        file_size = os.path.getsize(final_path)
+        metrics.spool_files.inc()
+        metrics.spool_bytes.inc(file_size)
+        
         return final_path
 
     def load_batch(self, path: str) -> List[Dict]:
@@ -105,7 +120,10 @@ class DiskSpool:
     
     def ack_delete(self, path: str) -> None:
         try:
+            file_size = os.path.getsize(path)
             os.remove(path)
+            metrics.spool_files.dec()
+            metrics.spool_bytes.dec(file_size)
         except FileNotFoundError:
             pass
 
