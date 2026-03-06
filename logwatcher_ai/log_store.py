@@ -28,13 +28,9 @@ class LogStore:
     """
     Stores a rolling window of log events in memory.
 
-    Why a rolling buffer?
-    - Perfect for demos / student projects
-    - Fast queries
-    - Easy to replace later (SQLite, Elasticsearch, Loki, etc.)
     """
 
-    def __init__(self, max_events: int = 5000):
+    def __init__(self, max_events: int = 100000):
         self._events: Deque[LogEvent] = deque(maxlen=max_events)
 
     def add(self, event: LogEvent) -> None:
@@ -44,6 +40,14 @@ class LogStore:
     def recent(self, limit: int = 200) -> List[LogEvent]:
         """Return the most recent N events."""
         return list(self._events)[-limit:]
+
+    def count(self) -> int:
+        """Return how many events are currently stored."""
+        return len(self._events)
+
+    def capacity(self) -> int:
+        """Return the max number of events the store can hold."""
+        return self._events.maxlen or 0
 
     def query(self, filt: Dict[str, Any], max_scan: int = 2000) -> List[LogEvent]:
         """
@@ -84,8 +88,6 @@ class LogStore:
                     if t < cutoff:
                         continue
                 except Exception:
-                    # If timestamp parsing fails, you can choose to drop or keep.
-                    # For demo we keep it.
                     pass
 
             # Exact event filter
