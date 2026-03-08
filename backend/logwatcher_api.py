@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from opensearchpy import OpenSearch, NotFoundError
 
 # =============================================================================
@@ -26,6 +27,10 @@ from opensearchpy import OpenSearch, NotFoundError
 # Default values work for local development
 OPENSEARCH_HOST = os.getenv("OPENSEARCH_HOST", "localhost")
 OPENSEARCH_PORT = int(os.getenv("OPENSEARCH_PORT", 9200))
+
+# Admin credentials - set via environment variables in docker-compose
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 INDEX_NAME = "logs"  # Name of the OpenSearch index where logs are stored
 
 # =============================================================================
@@ -133,6 +138,24 @@ async def startup():
 def root():
     # Simple health check endpoint to verify the API is running
     return {"status": "ok", "message": "LogWatcher API is running"}
+
+
+# =============================================================================
+# Authentication Endpoint
+# =============================================================================
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/authenticate")
+async def authenticate(body: LoginRequest):
+    # Validates username and password against configured admin credentials.
+    # Returns {"success": true} on success, 401 on failure.
+    # No other endpoints are protected — this only gates the frontend UI.
+    if body.username == ADMIN_USERNAME and body.password == ADMIN_PASSWORD:
+        return {"success": True}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
 # =============================================================================
