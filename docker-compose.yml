@@ -9,6 +9,8 @@ services:
     environment:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
     depends_on:
       opensearch:
         condition: service_healthy
