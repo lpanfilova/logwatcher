@@ -11,17 +11,43 @@ Why:
 
 import os
 import json
-from typing import Dict, Any, List
 
+from typing import Dict, Any, List
 from openai import OpenAI
 from openai import RateLimitError, AuthenticationError, APIConnectionError, APIStatusError
 from schemas import LogEvent
-
-# Reads OPENAI_API_KEY from environment variables
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+from pathlib import Path
 
 MODEL = "gpt-4o-mini"
 
+def load_openai_key() -> str | None:
+    """
+    Load the OpenAI API key.
+
+    Priority:
+    1. OPENAI_API_KEY.txt file
+    2. Environment variable OPENAI_API_KEY
+    """
+    key_file = Path("OPENAI_API_KEY.txt")
+
+    if key_file.exists():
+        key = key_file.read_text().strip()
+        if key:
+            print("[AI] Loaded OpenAI key from OPENAI_API_KEY.txt")
+            return key
+
+    env_key = os.getenv("OPENAI_API_KEY")
+    if env_key:
+        print("[AI] Loaded OpenAI key from environment variable")
+        return env_key
+
+    print("[AI] No OpenAI API key found")
+    return None
+
+
+OPENAI_API_KEY = load_openai_key()
+
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 def _chat(prompt: str, system: str) -> str:
     try:
