@@ -2,6 +2,7 @@ import Nav from "react-bootstrap/Nav";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { FaFileAlt } from "react-icons/fa";
+import { BiBarChartAlt2 } from "react-icons/bi";
 import {type CSSProperties } from "react";
 
 const Sidebar = () => {
@@ -57,6 +58,15 @@ const Sidebar = () => {
             style={({ isActive }) => getNavLinkStyle(isActive)}
           >
             <FaFileAlt /> Logs
+          </NavLink>
+        </Nav.Item>
+
+        <Nav.Item>
+          <NavLink
+            to="/analytics"
+            style={({ isActive }) => getNavLinkStyle(isActive)}
+          >
+            <BiBarChartAlt2 /> Analytics
           </NavLink>
         </Nav.Item>
       </Nav>
