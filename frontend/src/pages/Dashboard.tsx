@@ -112,6 +112,27 @@ const Dashboard = () => {
     message: log.msg || log.message
   })));
 
+  const recurringMessages = Object.entries(incidentCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  const truncateLabel = (value: string, max: number = 40) =>
+    value.length > max ? `${value.slice(0, max)}...` : value;
+
+  const recurringMessagesChartData = {
+    labels: recurringMessages.map(([message]) => truncateLabel(message)),
+    datasets: [
+      {
+        label: "Occurrences",
+        data: recurringMessages.map(([, count]) => count),
+        backgroundColor: "rgba(255, 193, 7, 0.75)",
+        borderColor: "rgb(255, 193, 7)",
+        borderWidth: 1,
+        borderRadius: 4,
+      },
+    ],
+  };
+
   //Chart data
   const chartOptions = {
     responsive: true,
@@ -125,6 +146,30 @@ const Dashboard = () => {
       },
       y: {
         beginAtZero: true,
+      },
+    },
+  };
+
+  const recurringChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: "y" as const,
+    scales: {
+      x: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+        },
+      },
+      y: {
+        ticks: {
+          autoSkip: false,
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: false,
       },
     },
   };
@@ -191,11 +236,20 @@ const Dashboard = () => {
 
         <Col md={5}>
           <div className="shadow rounded border bg-white p-3">
-            <h4 className="mb-3">Incidents</h4>
-            <div style={{ maxHeight: "300px", overflow: "auto", overflowX: "hidden" }}>
-              {Object.entries(incidentCounts).map(([incident, count]) => (
-                <div className="border rounded p-2 mb-2" key={incident}>
-                  <strong>{incident}</strong>
+            <h4 className="mb-3">Recurring Log Messages</h4>
+            <div className="border rounded p-2 mb-2" style={{ height: "220px" }}>
+              {loading ? (
+                <div className="text-center py-4">Loading recurring messages...</div>
+              ) : recurringMessages.length === 0 ? (
+                <div className="text-center py-4 text-muted">No recurring messages found.</div>
+              ) : (
+                <Bar data={recurringMessagesChartData} options={recurringChartOptions} />
+              )}
+            </div>
+            <div style={{ maxHeight: "110px", overflow: "auto", overflowX: "hidden" }}>
+              {recurringMessages.map(([message, count]) => (
+                <div className="border rounded p-2 mb-2" key={message}>
+                  <strong>{truncateLabel(message, 70)}</strong>
                   <div className="text-muted">Occurrences: {count}</div>
                 </div>
               ))}
