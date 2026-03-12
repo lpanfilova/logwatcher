@@ -38,3 +38,4 @@ __pycache__/
 config.local.yaml
 *.local.yaml
 .DS_Store
+logwatcher_ai/OPENAI_API_KEY.txt
