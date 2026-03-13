@@ -29,6 +29,29 @@ export interface TimelineData {
   data: Array<{ timestamp: string; count: number }>;
 }
 
+export interface ByEventData {
+  events: Array<{ event: string; count: number }>;
+}
+
+export interface LogVolumeData {
+  interval: string;
+  data: Array<{
+    timestamp: string;
+    total: number;
+    by_level: Record<string, number>;
+  }>;
+}
+
+export interface ErrorMetricsData {
+  interval: string;
+  total_errors: number;
+  data: Array<{ timestamp: string; count: number }>;
+}
+
+export interface TopErrorsData {
+  top_errors: Array<{ event: string; count: number }>;
+}
+
 export interface LogsResponse {
   total: number;
   logs: LogEntry[];
@@ -73,6 +96,55 @@ export class ApiClient {
 
     const response = await this.axiosInstance.get(
       `/metrics/timeline?${params}`,
+    );
+    return response.data;
+  }
+
+  // Get counts grouped by event type
+  async getMetricsByEvent(): Promise<ByEventData> {
+    const response = await this.axiosInstance.get("/metrics/by-event");
+    return response.data;
+  }
+
+  // Get log volume over time with level breakdown
+  async getLogVolumeMetrics(
+    interval: string = "1h",
+    service?: string,
+  ): Promise<LogVolumeData> {
+    const params = new URLSearchParams();
+    params.append("interval", interval);
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(
+      `/metrics/log-volume?${params}`,
+    );
+    return response.data;
+  }
+
+  // Get error trend metrics
+  async getErrorMetrics(
+    interval: string = "1h",
+    service?: string,
+  ): Promise<ErrorMetricsData> {
+    const params = new URLSearchParams();
+    params.append("interval", interval);
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(`/metrics/errors?${params}`);
+    return response.data;
+  }
+
+  // Get most frequent errors
+  async getTopErrorsMetrics(
+    size: number = 10,
+    service?: string,
+  ): Promise<TopErrorsData> {
+    const params = new URLSearchParams();
+    params.append("size", size.toString());
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(
+      `/metrics/top-errors?${params}`,
     );
     return response.data;
   }
