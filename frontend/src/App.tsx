@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Logs from "./pages/Logs";
 import LogDetails from "./pages/LogDetails";
+import Analytics from "./pages/Analytics";
 import Sidebar from "./pages/Sidebar";
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/logs/:id" element={<LogDetails />} />
+            <Route path="/analytics" element={<Analytics />} />
           </Routes>
         </div>
       </div>
