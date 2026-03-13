@@ -35,7 +35,7 @@ from watcher import Watcher
 load_dotenv()
 
 LOG_PATH = os.environ.get("LOG_PATH", "demo.log")
-DOCKER_CONTAINER_NAME = os.environ.get("DOCKER_CONTAINER_NAME", "infallible_einstein")
+DOCKER_CONTAINER_NAME = os.environ.get("DOCKER_CONTAINER_NAME", "demo-app")
 READ_FROM_DOCKER = os.environ.get("READ_FROM_DOCKER", "true").lower() == "true"
 MAX_EVENTS = int(os.environ.get("MAX_EVENTS", "100000"))
 MAX_FILE_LINES = int(os.environ.get("MAX_FILE_LINES", "100000"))
