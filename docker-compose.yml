@@ -57,6 +57,8 @@ services:
       - DISABLE_SECURITY_PLUGIN=true
     ports:
       - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1"]
       interval: 5s
@@ -74,3 +76,6 @@ services:
   #    - "5601:5601"
   #  depends_on:
   #    - opensearch
+
+volumes:
+  opensearch-data:
