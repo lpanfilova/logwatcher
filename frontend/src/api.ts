@@ -2,6 +2,8 @@
 import axios from "axios";
 
 const API_BASE_URL = "/api"; // Proxied to backend
+const AI_API_BASE_URL = "/ai"; // Proxied to AI backend
+const AUTH_STORAGE_KEY = "logwatcher-authenticated";
 
 export interface LogEntry {
   id: string;
@@ -29,6 +31,29 @@ export interface TimelineData {
   data: Array<{ timestamp: string; count: number }>;
 }
 
+export interface ByEventData {
+  events: Array<{ event: string; count: number }>;
+}
+
+export interface LogVolumeData {
+  interval: string;
+  data: Array<{
+    timestamp: string;
+    total: number;
+    by_level: Record<string, number>;
+  }>;
+}
+
+export interface ErrorMetricsData {
+  interval: string;
+  total_errors: number;
+  data: Array<{ timestamp: string; count: number }>;
+}
+
+export interface TopErrorsData {
+  top_errors: Array<{ event: string; count: number }>;
+}
+
 export interface LogsResponse {
   total: number;
   logs: LogEntry[];
@@ -50,11 +75,31 @@ export interface TimelineQueryParams {
   source?: string;
 }
 
+export interface ChatRequest {
+  question: string;
+  max_logs: number;
+}
+
+export interface ChatResponse {
+  filter_used: Record<string, unknown>;
+  matched_count: number;
+  answer: string;
+}
+
 export class ApiClient {
   private axiosInstance = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
   });
+
+  private aiAxiosInstance = axios.create({
+    baseURL: AI_API_BASE_URL,
+    timeout: 30000,
+  });
+
+  async login(username: string, password: string): Promise<void> {
+    await this.axiosInstance.post("/authenticate", { username, password });
+  }
 
   // Get dashboard summary statistics
   async getSummary(): Promise<SummaryData> {
@@ -73,6 +118,55 @@ export class ApiClient {
 
     const response = await this.axiosInstance.get(
       `/metrics/timeline?${params}`,
+    );
+    return response.data;
+  }
+
+  // Get counts grouped by event type
+  async getMetricsByEvent(): Promise<ByEventData> {
+    const response = await this.axiosInstance.get("/metrics/by-event");
+    return response.data;
+  }
+
+  // Get log volume over time with level breakdown
+  async getLogVolumeMetrics(
+    interval: string = "1h",
+    service?: string,
+  ): Promise<LogVolumeData> {
+    const params = new URLSearchParams();
+    params.append("interval", interval);
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(
+      `/metrics/log-volume?${params}`,
+    );
+    return response.data;
+  }
+
+  // Get error trend metrics
+  async getErrorMetrics(
+    interval: string = "1h",
+    service?: string,
+  ): Promise<ErrorMetricsData> {
+    const params = new URLSearchParams();
+    params.append("interval", interval);
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(`/metrics/errors?${params}`);
+    return response.data;
+  }
+
+  // Get most frequent errors
+  async getTopErrorsMetrics(
+    size: number = 10,
+    service?: string,
+  ): Promise<TopErrorsData> {
+    const params = new URLSearchParams();
+    params.append("size", size.toString());
+    if (service) params.append("service", service);
+
+    const response = await this.axiosInstance.get(
+      `/metrics/top-errors?${params}`,
     );
     return response.data;
   }
@@ -99,9 +193,41 @@ export class ApiClient {
     const response = await this.axiosInstance.get(`/logs/${id}`);
     return response.data.log;
   }
+
+  async askChat(question: string, maxLogs: number = 200): Promise<ChatResponse> {
+    const response = await this.aiAxiosInstance.post("/ask", {
+      question,
+      max_logs: maxLogs,
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
+
+export const isAuthenticated = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.sessionStorage.getItem(AUTH_STORAGE_KEY) === "true";
+};
+
+export const setAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(AUTH_STORAGE_KEY, "true");
+};
+
+export const clearAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+};
 
 // Utility functions for data transformation
 export const mapLogLevelToString = (level: number): string => {

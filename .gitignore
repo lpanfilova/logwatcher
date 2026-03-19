@@ -42,3 +42,5 @@ config.local.yaml
 # Log files on disk
 /spool
 /agent/spool
+
+logwatcher_ai/OPENAI_API_KEY.txt
