@@ -3,6 +3,7 @@
 import logging
 import random
 import time
+from enum import Enum
 from typing import List, Dict, Optional
 
 import requests
@@ -12,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}
+
+class SendResult(str, Enum):
+    DELIVERED = "delivered"
+    FAILED_RETRYABLE = "failed_retryable"
+    FAILED_NON_RETRYABLE = "failed_non_retryable"
 
 def post_batch(server_url: str, batch: List[Dict], timeout_seconds: float) -> None:
     payload = {"events": batch}
@@ -49,14 +55,14 @@ def send_with_retry(
         max_attempts: int,
         backoff_initial: float,
         backoff_max: float,
-) -> None:
+) -> SendResult:
     backoff = backoff_initial
     
     for attempt in range(1, max_attempts + 1):
         try:
             post_batch(server_url, batch, timeout_seconds)
             metrics.logs_sent.inc(len(batch))
-            return
+            return SendResult.DELIVERED
         
         except requests.exceptions.RequestException as exc:
             metrics.send_failures.inc()
@@ -74,11 +80,13 @@ def send_with_retry(
             )
 
             if not retryable:
-                raise
+                return SendResult.FAILED_NON_RETRYABLE
 
             if attempt == max_attempts:
-                raise
+                return SendResult.FAILED_RETRYABLE
 
             fluct = random.uniform(0.5, 1.0)
             time.sleep(backoff * fluct)
             backoff = min(backoff * 2, backoff_max)
+
+    return SendResult.FAILED_RETRYABLE
