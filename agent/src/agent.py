@@ -22,7 +22,14 @@ def run():
             max_spool_bytes=cfg.spool_max_bytes,
         )
     )
-    sender = SpoolSender(spool, cfg.backend_url)
+    sender = SpoolSender(
+        spool=spool,
+        server_url=cfg.backend_url,
+        timeout_seconds=cfg.shipper_timeout_seconds,
+        max_attempts=cfg.shipper_max_attempts,
+        backoff_initial=cfg.shipper_backoff_initial_seconds,
+        backoff_max=cfg.shipper_backoff_max_seconds,
+    )
     setup_logging(cfg.log_level)
     logger = logging.getLogger("log-agent")
 

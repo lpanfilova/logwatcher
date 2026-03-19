@@ -1,3 +1,5 @@
+# spool.py
+
 import os
 import json
 import time
@@ -5,9 +7,12 @@ import glob
 import uuid
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
+import logging
+
+from shipper import send_with_retry, SendResult
 from observability import metrics
 
-from shipper import send_with_retry
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SpoolConfig:
@@ -129,9 +134,21 @@ class DiskSpool:
 
 class SpoolSender:
 
-    def __init__(self, spool: DiskSpool, server_url: str):
+    def __init__(
+            self, 
+            spool: DiskSpool, 
+            server_url: str,
+            timeout_seconds: float,
+            max_attempts: int,
+            backoff_initial: float,
+            backoff_max: float,
+            ):
         self.spool = spool
         self.server_url = server_url
+        self.timeout_seconds = timeout_seconds
+        self.max_attempts = max_attempts
+        self.backoff_initial = backoff_initial
+        self.backoff_max = backoff_max
 
     def flush_once(self) -> bool:
         files = self.spool.list_batches_oldest_first()
@@ -144,15 +161,45 @@ class SpoolSender:
             batch = self.spool.load_batch(oldest)
         except Exception:
             bad_path = oldest + ".bad"
+            logger.exception("failed to load batch from spool; moving to .bad", extra={"path": oldest})
             try:
                 os.replace(oldest, bad_path)
             except FileNotFoundError:
                 pass
             return False
         
-        try:
-            send_with_retry(self.server_url, batch)
+        result = send_with_retry(
+            server_url=self.server_url,
+            batch=batch,
+            timeout_seconds=self.timeout_seconds,
+            max_attempts=self.max_attempts,
+            backoff_initial=self.backoff_initial,
+            backoff_max=self.backoff_max,
+        )
+
+        if result == SendResult.DELIVERED:
             self.spool.ack_delete(oldest)
             return True
-        except Exception:
+
+        if result == SendResult.FAILED_NON_RETRYABLE:
+            logger.error(
+                "dropping batch due to non-retryable send failure",
+                extra={"path": oldest, "batch_size": len(batch)},
+            )
+            self.spool.ack_delete(oldest)
+            metrics.dropped_batches.inc()
             return False
+
+        if result == SendResult.FAILED_RETRYABLE:
+            logger.warning(
+            "keeping batch on disk after retryable send failure",
+            extra={"path": oldest, "batch_size": len(batch)},
+            )
+            return False
+        
+        logger.error(
+        "unexpected send result; keeping batch on disk",
+        extra={"path": oldest, "batch_size": len(batch), "result": str(result)},
+        )
+
+        return False
