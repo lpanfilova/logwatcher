@@ -2,6 +2,7 @@
 import axios from "axios";
 
 const API_BASE_URL = "/api"; // Proxied to backend
+const AI_API_BASE_URL = "/ai"; // Proxied to AI backend
 const AUTH_STORAGE_KEY = "logwatcher-authenticated";
 
 export interface LogEntry {
@@ -74,10 +75,26 @@ export interface TimelineQueryParams {
   source?: string;
 }
 
+export interface ChatRequest {
+  question: string;
+  max_logs: number;
+}
+
+export interface ChatResponse {
+  filter_used: Record<string, unknown>;
+  matched_count: number;
+  answer: string;
+}
+
 export class ApiClient {
   private axiosInstance = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
+  });
+
+  private aiAxiosInstance = axios.create({
+    baseURL: AI_API_BASE_URL,
+    timeout: 30000,
   });
 
   async login(username: string, password: string): Promise<void> {
@@ -175,6 +192,14 @@ export class ApiClient {
   async getLogById(id: string): Promise<LogEntry> {
     const response = await this.axiosInstance.get(`/logs/${id}`);
     return response.data.log;
+  }
+
+  async askChat(question: string, maxLogs: number = 200): Promise<ChatResponse> {
+    const response = await this.aiAxiosInstance.post("/ask", {
+      question,
+      max_logs: maxLogs,
+    });
+    return response.data;
   }
 }
 

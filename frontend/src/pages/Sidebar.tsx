@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { FaFileAlt } from "react-icons/fa";
 import { BiBarChartAlt2 } from "react-icons/bi";
+import { BsChatDots } from "react-icons/bs";
 import { type CSSProperties } from "react";
 import { clearAuthenticated } from "../api";
 
@@ -77,6 +78,15 @@ const Sidebar = () => {
               style={({ isActive }) => getNavLinkStyle(isActive)}
             >
               <BiBarChartAlt2 /> Analytics
+            </NavLink>
+          </Nav.Item>
+
+          <Nav.Item>
+            <NavLink
+              to="/chat"
+              style={({ isActive }) => getNavLinkStyle(isActive)}
+            >
+              <BsChatDots /> Chat
             </NavLink>
           </Nav.Item>
         </Nav>

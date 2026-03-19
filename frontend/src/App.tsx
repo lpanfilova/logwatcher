@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Logs from "./pages/Logs";
 import LogDetails from "./pages/LogDetails";
 import Analytics from "./pages/Analytics";
+import Chat from "./pages/Chat";
 import Sidebar from "./pages/Sidebar";
 import Login from "./pages/Login";
 import { isAuthenticated } from "./api";
@@ -53,6 +54,7 @@ function App() {
           <Route path="/logs" element={<Logs />} />
           <Route path="/logs/:id" element={<LogDetails />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/chat" element={<Chat />} />
         </Route>
         <Route
           path="*"
