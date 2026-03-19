@@ -2,6 +2,7 @@
 import axios from "axios";
 
 const API_BASE_URL = "/api"; // Proxied to backend
+const AUTH_STORAGE_KEY = "logwatcher-authenticated";
 
 export interface LogEntry {
   id: string;
@@ -78,6 +79,10 @@ export class ApiClient {
     baseURL: API_BASE_URL,
     timeout: 10000,
   });
+
+  async login(username: string, password: string): Promise<void> {
+    await this.axiosInstance.post("/authenticate", { username, password });
+  }
 
   // Get dashboard summary statistics
   async getSummary(): Promise<SummaryData> {
@@ -174,6 +179,30 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+export const isAuthenticated = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.sessionStorage.getItem(AUTH_STORAGE_KEY) === "true";
+};
+
+export const setAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(AUTH_STORAGE_KEY, "true");
+};
+
+export const clearAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+};
 
 // Utility functions for data transformation
 export const mapLogLevelToString = (level: number): string => {
