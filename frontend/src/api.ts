@@ -2,6 +2,8 @@
 import axios from "axios";
 
 const API_BASE_URL = "/api"; // Proxied to backend
+const AI_API_BASE_URL = "/ai"; // Proxied to AI backend
+const AUTH_STORAGE_KEY = "logwatcher-authenticated";
 
 export interface LogEntry {
   id: string;
@@ -73,11 +75,31 @@ export interface TimelineQueryParams {
   source?: string;
 }
 
+export interface ChatRequest {
+  question: string;
+  max_logs: number;
+}
+
+export interface ChatResponse {
+  filter_used: Record<string, unknown>;
+  matched_count: number;
+  answer: string;
+}
+
 export class ApiClient {
   private axiosInstance = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000,
   });
+
+  private aiAxiosInstance = axios.create({
+    baseURL: AI_API_BASE_URL,
+    timeout: 30000,
+  });
+
+  async login(username: string, password: string): Promise<void> {
+    await this.axiosInstance.post("/authenticate", { username, password });
+  }
 
   // Get dashboard summary statistics
   async getSummary(): Promise<SummaryData> {
@@ -171,9 +193,41 @@ export class ApiClient {
     const response = await this.axiosInstance.get(`/logs/${id}`);
     return response.data.log;
   }
+
+  async askChat(question: string, maxLogs: number = 200): Promise<ChatResponse> {
+    const response = await this.aiAxiosInstance.post("/ask", {
+      question,
+      max_logs: maxLogs,
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
+
+export const isAuthenticated = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.sessionStorage.getItem(AUTH_STORAGE_KEY) === "true";
+};
+
+export const setAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(AUTH_STORAGE_KEY, "true");
+};
+
+export const clearAuthenticated = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+};
 
 // Utility functions for data transformation
 export const mapLogLevelToString = (level: number): string => {

@@ -36,6 +36,24 @@ services:
       - "5173:5173"
     depends_on:
       - backend-api
+      - logwatcher-ai
+
+  logwatcher-ai:
+    build: ./logwatcher_ai
+    container_name: logwatcher-ai
+    environment:
+      - READ_FROM_DOCKER=false
+      - BACKEND_API_URL=http://backend-api:8000/api/logs
+      - BACKEND_POLL_INTERVAL=2.0
+      - BACKEND_FETCH_SIZE=200
+      - LOG_PATH=/app/demo.log
+    volumes:
+      - ./logwatcher_ai/OPENAI_API_KEY.txt:/app/OPENAI_API_KEY.txt:ro
+    depends_on:
+      - backend-api
+    ports:
+      - "8002:8002"
+
   agent:
     build: ./agent
     container_name: log_forwarding_agent
@@ -57,6 +75,8 @@ services:
       - DISABLE_SECURITY_PLUGIN=true
     ports:
       - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null || exit 1"]
       interval: 5s
@@ -74,3 +94,6 @@ services:
   #    - "5601:5601"
   #  depends_on:
   #    - opensearch
+
+volumes:
+  opensearch-data:

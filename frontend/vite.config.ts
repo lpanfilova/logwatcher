@@ -11,6 +11,11 @@ export default defineConfig({
         target: "http://backend-api:8000",
         changeOrigin: true,
       },
+      "/ai": {
+        target: "http://logwatcher-ai:8002",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ai/, ""),
+      },
     },
   },
 });

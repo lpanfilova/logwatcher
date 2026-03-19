@@ -22,17 +22,18 @@ Endpoints:
 import asyncio
 import json
 import os
-import subprocess
-import csv
-import io
+from collections import deque
+from typing import Any
+from urllib.error import URLError
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from ai_client import build_filter_from_question, explain_results
 from log_store import LogStore
-from log_tail import tail_docker_logs, tail_file
-from schemas import AskRequest, AskResponse
+from schemas import AskRequest, AskResponse, LogEvent
 from watcher import Watcher
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, StreamingResponse, Response
@@ -43,11 +44,16 @@ load_dotenv()
 LOG_PATH = os.environ.get("LOG_PATH", "demo.log")
 DOCKER_CONTAINER_NAME = os.environ.get("DOCKER_CONTAINER_NAME")
 READ_FROM_DOCKER = os.environ.get("READ_FROM_DOCKER", "true").lower() == "true"
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://backend-api:8000/api/logs")
+BACKEND_POLL_INTERVAL = float(os.environ.get("BACKEND_POLL_INTERVAL", "2.0"))
+BACKEND_FETCH_SIZE = int(os.environ.get("BACKEND_FETCH_SIZE", "200"))
 MAX_EVENTS = int(os.environ.get("MAX_EVENTS", "100000"))
 MAX_FILE_LINES = int(os.environ.get("MAX_FILE_LINES", "100000"))
 
 store = LogStore(max_events=MAX_EVENTS)
 watcher = Watcher()
+seen_event_ids: deque[str] = deque(maxlen=MAX_EVENTS)
+seen_event_ids_lookup: set[str] = set()
 
 def detect_running_container() -> str | None:
     """
@@ -110,27 +116,21 @@ def handle_event(e):
         if q in live_subscribers:
             live_subscribers.remove(q)
 
+
 @app.on_event("startup")
 async def startup() -> None:
     """Start either Docker ingestion or file tailing."""
     async def _run_ingestion() -> None:
         print(
-            f"[startup] mode={'docker' if READ_FROM_DOCKER else 'file'} "
-            f"log_path={LOG_PATH} container={DOCKER_CONTAINER_NAME if READ_FROM_DOCKER else 'N/A'}"
+            f"[startup] mode={'docker' if READ_FROM_DOCKER else 'backend'} "
+            f"log_path={LOG_PATH} container={DOCKER_CONTAINER_NAME if READ_FROM_DOCKER else 'N/A'} "
+            f"backend_api_url={BACKEND_API_URL if not READ_FROM_DOCKER else 'N/A'}"
         )
 
         if READ_FROM_DOCKER:
-            await tail_docker_logs(
-                container_name=DOCKER_CONTAINER_NAME,
-                output_path=LOG_PATH,
-                on_event=handle_event,
-                max_file_lines=MAX_FILE_LINES,
-            )
+            raise RuntimeError("Docker log mode is no longer supported in this deployment.")
         else:
-            await tail_file(
-                path=LOG_PATH,
-                on_event=handle_event,
-            )
+            await poll_backend_logs()
 
     asyncio.create_task(_run_ingestion())
 
@@ -139,8 +139,9 @@ async def startup() -> None:
 def health():
     return {
         "status": "ok",
-        "mode": "docker" if READ_FROM_DOCKER else "file",
+        "mode": "docker" if READ_FROM_DOCKER else "backend",
         "docker_container_name": DOCKER_CONTAINER_NAME if READ_FROM_DOCKER else None,
+        "backend_api_url": BACKEND_API_URL if not READ_FROM_DOCKER else None,
         "log_path": LOG_PATH,
         "stored_events": store.count(),
         "store_capacity": store.capacity(),
