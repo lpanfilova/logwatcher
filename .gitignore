@@ -38,3 +38,7 @@ __pycache__/
 config.local.yaml
 *.local.yaml
 .DS_Store
+
+# Log files on disk
+/spool
+/agent/spool

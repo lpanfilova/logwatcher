@@ -42,6 +42,7 @@ services:
     volumes:
       - ./agent/config.yaml:/etc/agent/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./spool:/spool
     depends_on:
       - demo-app
     ports:

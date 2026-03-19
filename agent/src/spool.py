@@ -5,9 +5,12 @@ import glob
 import uuid
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
-from observability import metrics
+import logging
 
 from shipper import send_with_retry
+from observability import metrics
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SpoolConfig:
@@ -129,9 +132,21 @@ class DiskSpool:
 
 class SpoolSender:
 
-    def __init__(self, spool: DiskSpool, server_url: str):
+    def __init__(
+            self, 
+            spool: DiskSpool, 
+            server_url: str,
+            timeout_seconds: float,
+            max_attempts: int,
+            backoff_initial: float,
+            backoff_max: float,
+            ):
         self.spool = spool
         self.server_url = server_url
+        self.timeout_seconds = timeout_seconds
+        self.max_attempts = max_attempts
+        self.backoff_initial = backoff_initial
+        self.backoff_max = backoff_max
 
     def flush_once(self) -> bool:
         files = self.spool.list_batches_oldest_first()
@@ -151,8 +166,20 @@ class SpoolSender:
             return False
         
         try:
-            send_with_retry(self.server_url, batch)
+            send_with_retry(
+                server_url=self.server_url,
+                batch=batch,
+                timeout_seconds=self.timeout_seconds,
+                max_attempts=self.max_attempts,
+                backoff_initial=self.backoff_initial,
+                backoff_max=self.backoff_max,
+                )
             self.spool.ack_delete(oldest)
             return True
         except Exception:
+            logger.error(
+                "dropping batch after retries exhausted",
+                extra={"path": oldest, "batch_size": len(batch),},
+                exc_info=True,
+            )
             return False
