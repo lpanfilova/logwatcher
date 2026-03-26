@@ -9,12 +9,18 @@ from config import load_config
 
 
 def setup_logging(level: str) -> None:
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    root = logging.getLogger()
+
+    if not root.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+    
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
 def run():
+    setup_logging("DEBUG")
     cfg = load_config()
     spool = DiskSpool(
         SpoolConfig(
@@ -32,8 +38,9 @@ def run():
     )
     setup_logging(cfg.log_level)
     logger = logging.getLogger("log-agent")
+    logger.debug("final log level applied: %s", cfg.log_level)
 
-    logger.info("agent started", extra={"backend_url": cfg.backend_url, "container": cfg.target_container})
+    logger.info("agent started backend_url=%s container=%s", cfg.backend_url, cfg.target_container)
     
     buf = []
     last_flush = time.time()
