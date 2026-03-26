@@ -7,7 +7,6 @@ import {
   Form,
   InputGroup,
   Spinner,
-  Alert,
   Button,
 } from "react-bootstrap";
 import { Link } from "react-router-dom";
@@ -76,14 +75,6 @@ const Logs = () => {
     fetchLogs();
   }, [searchQuery, serviceFilter, levelFilter, minLevelFilter]);
 
-  // Function to assign bootstrap text color based on level
-  const levelColor = (level: number) => {
-    if (level >= 50) return "text-danger"; // ERROR, CRITICAL
-    if (level >= 40) return "text-warning"; // WARNING
-    if (level >= 30) return "text-info"; // INFO
-    return "text-secondary"; // DEBUG
-  };
-
   const levelOptions = [
     { value: "", label: "All Levels" },
     { value: "50", label: "ERROR" },
@@ -102,143 +93,320 @@ const Logs = () => {
 
   return (
     <Container fluid className="p-4">
-      {/* Shadowed, bordered card-style container */}
-      <div className=" shadow rounded border bg-white mb-4">
-        {/* Title */}
-        <h3 className="text-center p-2">
-          System Logs
+      {/* Header */}
+      <div
+        className="shadow-lg border-0 mb-4 position-relative overflow-hidden"
+        style={{
+          borderRadius: "15px",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+        }}
+      >
+        <div className="p-4">
+          <div className="d-flex align-items-center justify-content-center mb-2">
+            <i
+              className="bi bi-journal-text me-3"
+              style={{ fontSize: "2rem" }}
+            ></i>
+            <h2 className="fw-bold mb-0">System Logs</h2>
+          </div>
           {totalLogs > 0 && (
-            <small className="text-muted d-block">
-              Total: {totalLogs} logs
-            </small>
+            <div className="text-center opacity-75">
+              <small className="d-block">
+                <i className="bi bi-bar-chart-line me-1"></i>
+                Total: {totalLogs} logs
+              </small>
+            </div>
           )}
-        </h3>
+        </div>
       </div>
 
       {/* Filters */}
-      <Row className="mb-3 g-2 shadow rounded border bg-white p-3">
-        <Col md={4}>
-          <InputGroup>
-            <InputGroup.Text>
-              <BsSearch />
-            </InputGroup.Text>
-            <Form.Control
-              placeholder="Search logs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </InputGroup>
-        </Col>
-        <Col md={2}>
-          <Form.Control
-            placeholder="Filter service (partial name)"
-            value={serviceFilter}
-            onChange={(e) => setServiceFilter(e.target.value)}
-          />
-        </Col>
-        <Col md={2}>
-          <Form.Select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-          >
-            {levelOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={2}>
-          <Form.Select
-            value={minLevelFilter}
-            onChange={(e) => setMinLevelFilter(e.target.value)}
-          >
-            {minLevelOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={2}>
-          <Button
-            variant="outline-primary"
-            onClick={fetchLogs}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </Button>
-        </Col>
-      </Row>
+      <div
+        className="shadow-lg border-0 mb-4 position-relative overflow-hidden"
+        style={{
+          borderRadius: "15px",
+          background: "white",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div className="p-4">
+          <div className="d-flex align-items-center mb-4">
+            <i
+              className="bi bi-funnel-fill text-primary me-3"
+              style={{ fontSize: "1.5rem" }}
+            ></i>
+            <h4 className="fw-bold mb-0 text-dark">Filters & Search</h4>
+          </div>
+
+          <Row className="g-3">
+            <Col md={4}>
+              <InputGroup>
+                <InputGroup.Text
+                  className="border-0"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                    borderRadius: "10px 0 0 10px",
+                  }}
+                >
+                  <BsSearch className="text-primary" />
+                </InputGroup.Text>
+                <Form.Control
+                  placeholder="Search logs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-0 shadow-sm"
+                  style={{
+                    borderRadius: "0 10px 10px 0",
+                    background: "white",
+                  }}
+                />
+              </InputGroup>
+            </Col>
+            <Col md={2}>
+              <Form.Control
+                placeholder="Filter service"
+                value={serviceFilter}
+                onChange={(e) => setServiceFilter(e.target.value)}
+                className="border-0 shadow-sm"
+                style={{
+                  borderRadius: "10px",
+                  background: "white",
+                }}
+              />
+            </Col>
+            <Col md={2}>
+              <Form.Select
+                value={levelFilter}
+                onChange={(e) => setLevelFilter(e.target.value)}
+                className="border-0 shadow-sm"
+                style={{
+                  borderRadius: "10px",
+                  background: "white",
+                }}
+              >
+                {levelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col md={2}>
+              <Form.Select
+                value={minLevelFilter}
+                onChange={(e) => setMinLevelFilter(e.target.value)}
+                className="border-0 shadow-sm"
+                style={{
+                  borderRadius: "10px",
+                  background: "white",
+                }}
+              >
+                {minLevelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col md={2}>
+              <Button
+                className="w-100 border-0 shadow-sm fw-semibold"
+                style={{
+                  borderRadius: "10px",
+                  background:
+                    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  border: "none",
+                }}
+                onClick={fetchLogs}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="me-2" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-arrow-clockwise me-2"></i>
+                    Refresh
+                  </>
+                )}
+              </Button>
+            </Col>
+          </Row>
+        </div>
+      </div>
 
       {/* Error State */}
       {error && (
-        <Row className="mb-3">
-          <Col>
-            <Alert variant="danger" dismissible onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          </Col>
-        </Row>
+        <div
+          className="alert border-0 shadow-sm mb-4 d-flex align-items-center"
+          style={{
+            borderRadius: "10px",
+            background: "linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%)",
+            border: "1px solid #dc3545",
+          }}
+        >
+          <i
+            className="bi bi-exclamation-triangle-fill text-danger me-3"
+            style={{ fontSize: "1.2rem" }}
+          ></i>
+          <div>
+            <strong>Error:</strong> {error}
+          </div>
+        </div>
       )}
 
       {/* Loading State */}
       {loading && (
-        <Row className="shadow rounded border bg-white p-5 text-center mb-4">
-          <Col>
-            <Spinner animation="border" role="status" className="mb-2">
+        <div
+          className="shadow-lg border-0 mb-4 position-relative overflow-hidden"
+          style={{
+            borderRadius: "15px",
+            background: "white",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div className="p-5 text-center">
+            <div
+              className="spinner-border text-primary mb-3"
+              role="status"
+              style={{ width: "3rem", height: "3rem" }}
+            >
               <span className="visually-hidden">Loading...</span>
-            </Spinner>
-            <p className="text-muted mt-2">Fetching logs...</p>
-          </Col>
-        </Row>
+            </div>
+            <h5 className="text-muted mb-2">Fetching Logs</h5>
+            <p className="text-muted small">
+              Please wait while we load your system logs...
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Empty State */}
       {!loading && !error && logs.length === 0 && (
-        <Row className="shadow rounded border bg-white p-5 text-center mb-4">
-          <Col>
-            <p className="text-muted">No logs available. Waiting for data...</p>
-          </Col>
-        </Row>
+        <div
+          className="shadow-lg border-0 mb-4 position-relative overflow-hidden"
+          style={{
+            borderRadius: "15px",
+            background: "white",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div className="p-5 text-center">
+            <i
+              className="bi bi-journal-x text-muted"
+              style={{ fontSize: "4rem" }}
+            ></i>
+            <h5 className="text-muted mt-3 mb-2">No Logs Available</h5>
+            <p className="text-muted">
+              Waiting for log data to be collected...
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Styled Table */}
+      {/* Logs Table */}
       {!loading && logs.length > 0 && (
-        <Row className="shadow rounded border bg-white p-3">
-          <Table
-            striped
-            bordered
-            hover
-            responsive
-            className="shadow-sm align-middle rounded border text-center"
-          >
-            <thead className="table-dark rounded border text-center">
-              <tr>
-                <th>ID</th>
-                <th>Time</th>
-                <th>Service</th>
-                <th>Level</th>
-                <th>Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>
-                    <Link to={`/logs/${log.id}`}>{log.id}</Link>
-                  </td>
-                  <td>{formatTimestamp(log.timestamp)}</td>
-                  <td>{log.service}</td>
-                  <td className={levelColor(log.level)}>
-                    {mapLogLevelToString(log.level)}
-                  </td>
-                  <td className="text-start">{log.msg || log.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Row>
+        <div
+          className="shadow-lg border-0 position-relative overflow-hidden"
+          style={{
+            borderRadius: "15px",
+            background: "white",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div className="p-4">
+            <div className="d-flex align-items-center justify-content-between mb-4">
+              <div className="d-flex align-items-center">
+                <i
+                  className="bi bi-table text-primary me-3"
+                  style={{ fontSize: "1.5rem" }}
+                ></i>
+                <h4 className="fw-bold mb-0 text-dark">Log Entries</h4>
+              </div>
+              <div className="text-muted small">
+                Showing {logs.length} of {totalLogs} logs
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <Table hover className="mb-0">
+                <thead
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    color: "white",
+                  }}
+                >
+                  <tr>
+                    <th className="fw-semibold border-0">
+                      <i className="bi bi-hash me-2"></i>ID
+                    </th>
+                    <th className="fw-semibold border-0">
+                      <i className="bi bi-calendar-event me-2"></i>Time
+                    </th>
+                    <th className="fw-semibold border-0">
+                      <i className="bi bi-server me-2"></i>Service
+                    </th>
+                    <th className="fw-semibold border-0">
+                      <i className="bi bi-exclamation-triangle me-2"></i>Level
+                    </th>
+                    <th className="fw-semibold border-0">
+                      <i className="bi bi-chat-text me-2"></i>Message
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id} className="border-bottom border-light">
+                      <td>
+                        <Link
+                          to={`/logs/${log.id}`}
+                          className="text-decoration-none fw-semibold text-primary"
+                          style={{ fontSize: "0.9rem" }}
+                        >
+                          {log.id.slice(0, 8)}...
+                        </Link>
+                      </td>
+                      <td className="text-muted small">
+                        {formatTimestamp(log.timestamp)}
+                      </td>
+                      <td className="fw-medium">{log.service}</td>
+                      <td>
+                        <span
+                          className={`badge border-0 px-3 py-2 ${
+                            log.level >= 50
+                              ? "bg-danger"
+                              : log.level >= 40
+                                ? "bg-warning text-dark"
+                                : log.level >= 30
+                                  ? "bg-info"
+                                  : "bg-secondary"
+                          }`}
+                          style={{
+                            borderRadius: "20px",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          {mapLogLevelToString(log.level)}
+                        </span>
+                      </td>
+                      <td
+                        className="text-start text-truncate"
+                        style={{ maxWidth: "400px" }}
+                      >
+                        {log.msg || log.message}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          </div>
+        </div>
       )}
     </Container>
   );
