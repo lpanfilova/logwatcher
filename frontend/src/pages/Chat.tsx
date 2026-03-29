@@ -5,7 +5,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { Button, Card, Container, Form, Spinner } from "react-bootstrap";
+import { Button, Container, Form, Spinner } from "react-bootstrap";
+import { MdSend, MdPerson, MdSmartToy } from "react-icons/md";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { apiClient } from "../api";
@@ -108,9 +109,7 @@ const Chat = () => {
     }
   };
 
-  const handleQuestionKeyDown = (
-    event: KeyboardEvent<HTMLTextAreaElement>,
-  ) => {
+  const handleQuestionKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey) {
       return;
     }
@@ -139,8 +138,12 @@ const Chat = () => {
             remarkPlugins={[remarkGfm]}
             components={{
               p: ({ node, ...props }) => <p className="mb-3" {...props} />,
-              ul: ({ node, ...props }) => <ul className="mb-3 ps-4" {...props} />,
-              ol: ({ node, ...props }) => <ol className="mb-3 ps-4" {...props} />,
+              ul: ({ node, ...props }) => (
+                <ul className="mb-3 ps-4" {...props} />
+              ),
+              ol: ({ node, ...props }) => (
+                <ol className="mb-3 ps-4" {...props} />
+              ),
               code: ({ node, className, children, ...props }) => (
                 <code
                   className={className}
@@ -181,93 +184,202 @@ const Chat = () => {
       className="p-4 d-flex flex-column"
       style={{ height: "calc(100vh - 40px)" }}
     >
-      <div className="shadow rounded border bg-white mb-4 p-3">
-        <h3 className="text-center mb-1">Chat</h3>
-        <p className="text-center text-muted mb-0">
-          Ask the AI backend questions about recent logs.
-        </p>
+      {/* Header */}
+      <div
+        className="shadow-lg border-0 mb-4 position-relative overflow-hidden"
+        style={{
+          borderRadius: "15px",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+        }}
+      >
+        <div className="p-4">
+          <div className="d-flex align-items-center justify-content-center mb-2">
+            <i className="bi bi-robot me-3" style={{ fontSize: "2rem" }}></i>
+            <h2 className="fw-bold mb-0">AI Assistant</h2>
+          </div>
+          <div className="text-center opacity-75">
+            <small className="d-block">
+              <i className="bi bi-chat-dots me-1"></i>
+              Ask questions about your logs and get intelligent insights
+            </small>
+          </div>
+        </div>
       </div>
 
-      <Card className="shadow-sm border-0 flex-grow-1 d-flex flex-column overflow-hidden">
-        <Card.Body
+      {/* Chat Interface */}
+      <div
+        className="shadow-lg border-0 grow d-flex flex-column overflow-hidden position-relative"
+        style={{
+          borderRadius: "15px",
+          background: "white",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        {/* Messages Area */}
+        <div
           ref={transcriptRef}
-          className="d-flex flex-column gap-3 overflow-auto"
-          style={{ backgroundColor: "#f8f9fa" }}
+          className="grow overflow-auto p-4"
+          style={{
+            background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+            minHeight: "400px",
+          }}
         >
           {messages.length === 0 ? (
-            <div className="text-center text-muted my-auto">
-              Start the conversation by asking about recent logs.
+            <div className="d-flex align-items-center justify-content-center h-100">
+              <div className="text-center text-muted">
+                <i
+                  className="bi bi-chat-square-dots"
+                  style={{ fontSize: "4rem", color: "#6c757d" }}
+                ></i>
+                <h5 className="mt-3 mb-2">Start a Conversation</h5>
+                <p className="mb-0">Ask me anything about your recent logs!</p>
+                <small className="text-muted mt-2 d-block">
+                  Example: "Summarize errors in the last 10 minutes"
+                </small>
+              </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`d-flex ${
-                  message.role === "user" ? "justify-content-end" : "justify-content-start"
-                }`}
-              >
+            <div className="d-flex flex-column gap-4">
+              {messages.map((message) => (
                 <div
-                  className={`rounded-4 px-3 py-2 shadow-sm ${
+                  key={message.id}
+                  className={`d-flex ${
                     message.role === "user"
-                      ? "bg-primary text-white"
-                      : message.status === "error"
-                        ? "bg-danger-subtle border border-danger"
-                        : "bg-white"
+                      ? "justify-content-end"
+                      : "justify-content-start"
                   }`}
-                  style={{
-                    maxWidth: "75%",
-                    whiteSpace: "pre-wrap",
-                  }}
                 >
-                  {message.role === "user" ? (
-                    <div style={{ wordBreak: "break-word" }}>{message.content}</div>
-                  ) : (
-                    renderAssistantMessage(message)
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </Card.Body>
+                  <div
+                    className={`position-relative ${
+                      message.role === "user"
+                        ? "bg-primary text-white"
+                        : message.status === "error"
+                          ? "bg-danger-subtle border border-danger text-danger"
+                          : "bg-white shadow-sm"
+                    }`}
+                    style={{
+                      maxWidth: "75%",
+                      borderRadius:
+                        message.role === "user"
+                          ? "18px 18px 4px 18px"
+                          : "18px 18px 18px 4px",
+                      padding: "16px 20px",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {/* Avatar/Icon */}
+                    <div
+                      className="position-absolute d-flex align-items-center justify-content-center"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "50%",
+                        background:
+                          message.role === "user"
+                            ? "linear-gradient(135deg, #007eea 0%, #764ba2 100%)"
+                            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                        top: "-8px",
+                        [message.role === "user" ? "right" : "left"]: "-8px",
+                        border: "2px solid white",
+                      }}
+                    >
+                      {message.role === "user" ? (
+                        <MdPerson size={14} color="white" />
+                      ) : (
+                        <MdSmartToy size={14} color="white" />
+                      )}
+                    </div>
 
-        <Card.Body>
+                    <div style={{ marginTop: "8px" }}>
+                      {message.role === "user" ? (
+                        <div className="fw-medium">{message.content}</div>
+                      ) : (
+                        renderAssistantMessage(message)
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div
+          className="border-top border-light p-4"
+          style={{
+            background: "white",
+            borderRadius: "0 0 15px 15px",
+          }}
+        >
           <Form onSubmit={handleSubmit}>
             <Form.Group controlId="chatQuestion">
-              <Form.Control
-                as="textarea"
-                rows={2}
-                placeholder="Example: Summarize errors in the last 10 minutes"
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={handleQuestionKeyDown}
-                disabled={loading}
-                style={{
-                  minHeight: "56px",
-                  maxHeight: "96px",
-                  overflowY: "auto",
-                  resize: "none",
-                }}
-              />
+              <div className="position-relative">
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  placeholder="Ask me about your logs... (e.g., 'Show me errors from the last hour')"
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={handleQuestionKeyDown}
+                  disabled={loading}
+                  className="border-0 shadow-sm pe-5"
+                  style={{
+                    minHeight: "56px",
+                    maxHeight: "96px",
+                    overflowY: "auto",
+                    resize: "none",
+                    borderRadius: "12px",
+                    background:
+                      "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                    padding: "16px 50px 16px 20px",
+                  }}
+                />
+                <Button
+                  type="submit"
+                  disabled={loading || !question.trim()}
+                  className="position-absolute border-0 shadow-sm text-white d-flex align-items-center gap-1"
+                  style={{
+                    right: "8px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    borderRadius: "8px",
+                    background:
+                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    border: "none",
+                    minWidth: "72px",
+                    height: "34px",
+                    padding: "0 10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {loading ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <>
+                      <MdSend size={16} />
+                      <span>Send</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </Form.Group>
 
             <div className="d-flex justify-content-between align-items-center mt-3">
-              <small className="text-muted">
-                Scans up to {DEFAULT_MAX_LOGS} recent logs per request.
+              <small className="text-muted d-flex align-items-center">
+                <i className="bi bi-info-circle me-1"></i>
+                Scans up to {DEFAULT_MAX_LOGS} recent logs per request
               </small>
-              <Button type="submit" disabled={loading || !question.trim()}>
-                {loading ? (
-                  <>
-                    <Spinner size="sm" className="me-2" />
-                    Asking...
-                  </>
-                ) : (
-                  "Ask"
-                )}
-              </Button>
+              <small className="text-muted">
+                Press Enter to send, Shift+Enter for new line
+              </small>
             </div>
           </Form>
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
     </Container>
   );
 };
