@@ -11,12 +11,11 @@ Modes:
 
 Endpoints:
 - GET  /health        -> AI system health status
-- GET  /alerts        -> Latest alerts from the Watcher
-- POST /ask           -> Ask a natural-language question about recent logs, get an AI-generated answer
+- GET  /alerts        -> Error messages from machine code
+- POST /ask           -> Human to machine code request
 - GET  /logs          -> live HTML viewer
 - GET  /logs/recent   -> JSON snapshot
 - GET  /logs/stream   -> true live SSE stream
-- GET  /logs/export   -> Export logs as CSV or JSON
 """
 
 import asyncio
@@ -31,18 +30,16 @@ from urllib.request import urlopen
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
+
 from ai_client import build_filter_from_question, explain_results
 from log_store import LogStore
 from schemas import AskRequest, AskResponse, LogEvent
 from watcher import Watcher
-from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse, StreamingResponse, Response
-
 
 load_dotenv()
 
 LOG_PATH = os.environ.get("LOG_PATH", "demo.log")
-DOCKER_CONTAINER_NAME = os.environ.get("DOCKER_CONTAINER_NAME")
+DOCKER_CONTAINER_NAME = os.environ.get("DOCKER_CONTAINER_NAME", "demo-app")
 READ_FROM_DOCKER = os.environ.get("READ_FROM_DOCKER", "true").lower() == "true"
 BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://backend-api:8000/api/logs")
 BACKEND_POLL_INTERVAL = float(os.environ.get("BACKEND_POLL_INTERVAL", "2.0"))
@@ -54,39 +51,6 @@ store = LogStore(max_events=MAX_EVENTS)
 watcher = Watcher()
 seen_event_ids: deque[str] = deque(maxlen=MAX_EVENTS)
 seen_event_ids_lookup: set[str] = set()
-
-def detect_running_container() -> str | None:
-    """
-    Detect the first running Docker container.
-    Returns the container name or None if nothing is running.
-    """
-    try:
-        result = subprocess.run(
-            ["docker", "ps", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        containers = result.stdout.strip().splitlines()
-
-        if containers:
-            print(f"[docker] auto-detected container: {containers[0]}")
-            return containers[0]
-
-        print("[docker] no running containers found")
-        return None
-
-    except Exception as e:
-        print(f"[docker] detection failed: {e}")
-        return None
-
-
-if not DOCKER_CONTAINER_NAME:
-    DOCKER_CONTAINER_NAME = detect_running_container()
-
-if not DOCKER_CONTAINER_NAME:
-    raise RuntimeError("No Docker container found. Start a container or set DOCKER_CONTAINER_NAME.")
 
 # Small in-memory fanout queue for live browser updates
 live_subscribers: list[asyncio.Queue] = []
@@ -115,6 +79,86 @@ def handle_event(e):
     for q in dead:
         if q in live_subscribers:
             live_subscribers.remove(q)
+
+
+def remember_event_id(event_id: str) -> None:
+    if event_id in seen_event_ids_lookup:
+        return
+
+    if len(seen_event_ids) == seen_event_ids.maxlen:
+        oldest_id = seen_event_ids.popleft()
+        seen_event_ids_lookup.discard(oldest_id)
+
+    seen_event_ids.append(event_id)
+    seen_event_ids_lookup.add(event_id)
+
+
+def normalize_backend_log(log: dict[str, Any]) -> LogEvent:
+    raw_message = log.get("message") or ""
+    parsed_message: dict[str, Any] = {}
+
+    if isinstance(raw_message, str):
+      try:
+          candidate = json.loads(raw_message)
+          if isinstance(candidate, dict):
+              parsed_message = candidate
+      except json.JSONDecodeError:
+          parsed_message = {}
+
+    return LogEvent(**{
+        "level": log.get("level") if log.get("level") is not None else parsed_message.get("level", 30),
+        "time": parsed_message.get("time") or log.get("timestamp"),
+        "service": log.get("service") or parsed_message.get("service") or "unknown",
+        "event": log.get("event") or parsed_message.get("event") or "unknown",
+        "msg": log.get("msg") or parsed_message.get("msg"),
+        "userId": parsed_message.get("userId"),
+        "route": parsed_message.get("route"),
+        "method": parsed_message.get("method"),
+        "statusCode": parsed_message.get("statusCode"),
+        "latencyMs": parsed_message.get("latencyMs"),
+        "component": parsed_message.get("component"),
+        "queryName": parsed_message.get("queryName"),
+        "durationMs": parsed_message.get("durationMs"),
+        "authProvider": parsed_message.get("authProvider"),
+        "errorCode": parsed_message.get("errorCode"),
+        "dbHost": parsed_message.get("dbHost"),
+        "dbPort": parsed_message.get("dbPort"),
+        "err": parsed_message.get("err"),
+    })
+
+
+def fetch_backend_logs() -> list[dict[str, Any]]:
+    params = urlencode({"size": BACKEND_FETCH_SIZE})
+    with urlopen(f"{BACKEND_API_URL}?{params}", timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    logs = payload.get("logs", [])
+    return logs if isinstance(logs, list) else []
+
+
+async def poll_backend_logs() -> None:
+    while True:
+        try:
+            logs = await asyncio.to_thread(fetch_backend_logs)
+            new_events = 0
+
+            for log in reversed(logs):
+                event_id = log.get("id")
+                if not event_id or event_id in seen_event_ids_lookup:
+                    continue
+
+                handle_event(normalize_backend_log(log))
+                remember_event_id(event_id)
+                new_events += 1
+
+            if new_events:
+                print(f"[backend] ingested {new_events} new logs from {BACKEND_API_URL}")
+        except URLError as error:
+            print(f"[backend] ERROR: {error}")
+        except Exception as error:
+            print(f"[backend] ERROR: {error}")
+
+        await asyncio.sleep(BACKEND_POLL_INTERVAL)
 
 
 @app.on_event("startup")
@@ -172,63 +216,6 @@ def ask(req: AskRequest) -> AskResponse:
 def recent_logs(limit: int = 100):
     return store.recent(limit=limit)
 
-@app.get("/logs/export")
-def export_logs(
-    format: str = Query("json", pattern="^(json|csv)$"),
-    limit: int = Query(500, ge=1, le=10000),
-):
-    logs = store.recent(limit=limit)
-
-    if format == "json":
-        payload = [log.model_dump() for log in logs]
-        return Response(
-            content=json.dumps(payload, indent=2),
-            media_type="application/json",
-            headers={
-                "Content-Disposition": f'attachment; filename="logs_export.json"'
-            },
-        )
-
-    # CSV export
-    output = io.StringIO()
-
-    fieldnames = [
-        "level",
-        "time",
-        "service",
-        "event",
-        "msg",
-        "userId",
-        "route",
-        "method",
-        "statusCode",
-        "latencyMs",
-        "component",
-        "queryName",
-        "durationMs",
-        "authProvider",
-        "errorCode",
-        "dbHost",
-        "dbPort",
-        "err",
-    ]
-
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-
-    for log in logs:
-        row = log.model_dump()
-        if row.get("err") is not None:
-            row["err"] = json.dumps(row["err"])
-        writer.writerow(row)
-
-    return Response(
-        content=output.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="logs_export.csv"'
-        },
-    )
 
 @app.get("/logs/stream")
 async def logs_stream():
