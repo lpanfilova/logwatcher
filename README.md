@@ -10,23 +10,15 @@ This project is being developed as a Senior Engineering Project.
 - Central log server (API + storage)
 - Web-based dashboard
 
-## Status
-Project setup and architecture phase.
-
-## Running the Demo App
-The `demo-app` is a simple Node.js service that continuously emits structured
-JSON logs. It is used to test and demonstrate the LogWatcher system.
-
 ### Prerequisites
-- Node.js 18+ (for local run)
 - Docker + Docker Compose (for containerized run)
+- note Docker Desktop should contain Docker Compose
 
-### Option 1: Run locally
-cd demo-app
-npm install
-node src/server.js
-
-### Option 2: Run with Docker Compose
-docker compose up --build
+### Run with Docker Compose
+1. download Docker Desktop if not installed
+2. start Docker desktop
+3. within your terminal open the logwatcher folder
+4. run the following command "docker compose up --build"
+5. to access the frontend web UI, got to your browser and enter "http://localhost:5173"
 
 
