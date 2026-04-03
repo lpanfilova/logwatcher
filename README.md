@@ -18,7 +18,7 @@ This project is being developed as a Senior Engineering Project.
 1. download Docker Desktop if not installed
 2. start Docker desktop
 3. within your terminal open the logwatcher folder
-4. run the following command "docker compose up --build"
+4. run the following command "docker compose up --build" in the same folder as the docker-compose.yml
 5. to access the frontend web UI, got to your browser and enter "http://localhost:5173"
 
 
